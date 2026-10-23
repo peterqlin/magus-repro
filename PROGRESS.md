@@ -61,3 +61,23 @@ Verification:
 | `rev-parse HEAD` == `MAGUS_COMMIT` | PASS (`416ec513e4ef6bd5393f6ffb705cc3746a223bcd`) |
 | `git status --porcelain` empty | PASS |
 | Defaults table and entry point in PROGRESS.md | PASS |
+
+## Step 2 — Build the Docker image
+
+**2026-10-23 14:50** — step COMPLETE
+
+Done:
+- `docker/Dockerfile`: `python:3.9-slim-bookworm` (linux/amd64), GNU `time`, `procps`, `openjdk-17-jre-headless`, `dendropy==4.5.2` (2020-era release); `vendor/MAGUS` copied to `/opt/MAGUS` (without `.git`), bundled tools made executable. Upstream Dockerfile not touched (none exists at the pin).
+- `.dockerignore` limits the build context to `vendor/MAGUS`, so `data/raw` isn't sent to the daemon.
+- `scripts/build_image.sh` builds with `--platform $DOCKER_PLATFORM`; `scripts/dk.sh` runs commands with the project at `/work`, the host UID/GID, `HOME=/tmp`.
+- Image `magus-repro:pinned` = `sha256:d6900c262559`.
+
+Verification:
+| Check | Result |
+|---|---|
+| `dk.sh python3 /opt/MAGUS/magus.py -h` exits 0, shows Step 1 flags | PASS (-t, --maxnumsubsets, --maxsubsetsize, -r, -m, --graphtracemethod, -np all present) |
+| Bundled MAFFT runs | PASS — `v7.450 (2019/Aug/23)` |
+| Bundled MCL runs | PASS — `mcl 14-137` |
+| `/usr/bin/time -v true` prints max RSS | PASS |
+| `java -version` exits 0 | PASS — OpenJDK 17.0.20.1 |
+| Output files owned by host user | PASS |
