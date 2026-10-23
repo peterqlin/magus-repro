@@ -23,3 +23,9 @@ Notes:
 - Docker VM RAM is 3.8 GiB, below the ≥ 16 GB M1 recommends.
 - Host is Apple Silicon, so the `linux/amd64` image runs under emulation; expect MAFFT/MCL to be noticeably slower than native.
 - GNU `parallel` is not installed on the host (relevant for Step 9; can run it via the container instead).
+
+## Step 1 — Pin MAGUS
+
+**2026-10-23 14:30** — cloned `vendor/MAGUS` (103 commits); awaiting M4 approval
+
+Proposed pin: `416ec513e4ef6bd5393f6ffb705cc3746a223bcd` (2020-09-20, "Renaming to MAGUS") — the last commit before `4137b1a` (2020-10-26, "First version of scalability"), which begins the recursive/scalability work. It predates the `Datasets.zip` archive timestamps (2020-09-25). HEAD for comparison: `39041fc` (2024-03-25, "Merge pull request #33 from lrauschning/master").
