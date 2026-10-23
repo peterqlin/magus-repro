@@ -8,7 +8,7 @@ Spec: `docs/spec.md` (the spec's layout shows `spec.md` at the repo root; it liv
 **2026-10-23 14:25** — M2 satisfied; step COMPLETE
 
 Done:
-- `git init`; created `docker/`, `vendor/`, `data/raw/`, `data/datasets/`, `scripts/`, `runs/`, `results/`; `.gitignore` excludes `data/raw/*`, staged datasets, run dirs and `vendor/`.
+- `git init`; created `docker/`, `vendor/`, `data/raw/`, `data/datasets/`, `scripts/`, `runs/`, `results/`; `.gitignore` excludes `data/raw/*`, staged datasets and run dirs. (`vendor/` was also ignored at first; see the Step 1 addendum.)
 - `config.env` written. Host: arm64 macOS, 6 cores → `TOTAL_CORES=5`, `PARALLEL_JOBS=1`.
 
 Verification:
@@ -62,6 +62,8 @@ Verification:
 | `git status --porcelain` empty | PASS |
 | Defaults table and entry point in PROGRESS.md | PASS |
 
+**Addendum (2026-10-23 ~20:00 UTC)** — at the user's request, `vendor/MAGUS` is now a git submodule (url `https://github.com/vlasmirnov/MAGUS`, recorded at `416ec51`) instead of an untracked, gitignored clone. `scripts/build_image.sh` runs `git submodule update --init vendor/MAGUS` and refuses to build unless `vendor/MAGUS` is at `MAGUS_COMMIT` with no uncommitted changes. It labels the image `magus.commit=<sha>`. Image rebuilt (layers unchanged); label verified = `416ec513e4ef6bd5393f6ffb705cc3746a223bcd`; a deliberately wrong `MAGUS_COMMIT` makes the build exit 1.
+
 ## Step 2 — Build the Docker image
 
 **2026-10-23 14:50** — step COMPLETE
@@ -81,3 +83,7 @@ Verification:
 | `/usr/bin/time -v true` prints max RSS | PASS |
 | `java -version` exits 0 | PASS — OpenJDK 17.0.20.1 |
 | Output files owned by host user | PASS |
+
+## Step 3 — Smoke test MAGUS
+
+**2026-10-23 19:28 UTC** — attempt 1 ABORTED at the user's request after ~22 min. It was still in the first phase (MAFFT L-INS-i on the 300-seq guide-tree skeleton, 4 threads, ~500 MiB RSS) under QEMU amd64 emulation. `runs/_smoke/` removed. The user is enabling Rosetta for x86/amd64 emulation in Docker Desktop before retrying.

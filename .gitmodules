@@ -1,0 +1,3 @@
+[submodule "vendor/MAGUS"]
+	path = vendor/MAGUS
+	url = https://github.com/vlasmirnov/MAGUS

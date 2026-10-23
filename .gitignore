@@ -2,5 +2,4 @@ data/raw/*
 !data/raw/.gitkeep
 data/datasets/*/
 runs/*/
-vendor/
 .DS_Store
