@@ -197,3 +197,18 @@ Verification:
 Dataset shape: reference width 4702–4903 columns; mean unaligned length ≈ 1554 nt (about 1.5× the ROSE sequences, so expect longer MAGUS runs).
 
 Note — overlap between archive samples: the 20 archive samples share 162 IDs (19,837 distinct of 20,000); our 10 share 41 IDs (each in at most 2 samples), and every shared ID has an identical sequence in both. So the archive's samples were drawn independently from the full RNASim alignment, not as disjoint sets. This is how the original data was built; replicates overlap by ~0.4% of sequences.
+
+## Step 7 — Build the manifest
+
+**2026-10-23 21:05 UTC** — step COMPLETE
+
+Done:
+- `scripts/build_manifest.py` scans `data/datasets/*_R??` and writes `data/manifest.tsv` (columns `name, condition, replicate, unaligned, reference, n_seqs, ref_length`). Paths are relative to the project root; `ref_length` = reference alignment width; `replicate` is an integer. Rows are ordered 1000M1, 1000L1, 1000S1, RNASim, then by replicate. The condition label for RNASim is `RNASim`, matching the directory names (the spec's table calls it RNASim-1000). A rerun reports "unchanged".
+
+Verification:
+| Check | Result |
+|---|---|
+| Exactly 70 data rows: 20 × 1000M1, 20 × 1000L1, 20 × 1000S1, 10 × RNASim | PASS |
+| All paths exist | PASS (140/140) |
+| `n_seqs` = 1000 for every row | PASS |
+| Names unique | PASS |
