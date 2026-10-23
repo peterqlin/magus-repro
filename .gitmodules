@@ -1,3 +1,6 @@
 [submodule "vendor/MAGUS"]
 	path = vendor/MAGUS
 	url = https://github.com/vlasmirnov/MAGUS
+[submodule "vendor/FastSP"]
+	path = vendor/FastSP
+	url = https://github.com/smirarab/FastSP

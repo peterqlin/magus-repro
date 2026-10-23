@@ -117,3 +117,19 @@ Extra check: the validator also passes on the example's `true_alignment.txt`.
 Notes:
 - GNU time's "Maximum resident set size" is the peak of the single largest process (MAFFT or Python), not the sum over concurrent MAFFT workers; `docker stats` showed ~1.8 GiB for the whole container during the backbone phase. Relevant to the `max_rss_mb` column in Step 10.
 - `-np 4` gives 4 concurrent MAFFT backbones × 4 threads each = 16 threads on the VM's 6 CPUs.
+
+## Step 4 — Set up FastSP
+
+**2026-10-23 20:35 UTC** — step COMPLETE
+
+Done:
+- `vendor/FastSP` added as a git submodule (`https://github.com/smirarab/FastSP`, at `146c4096d2ec96c1227188b3aed18d09440bf4c9`, 2021-08-11, "1.7.1: small logging change"), the same approach as MAGUS. It ships a prebuilt `FastSP.jar` (FastSP 1.7.1), so no build was needed. It runs in the container via the `/work` mount.
+- `scripts/score.py <reference> <estimated>`: runs `java -jar vendor/FastSP/FastSP.jar -r … -e …` via `dk.sh`, parses SP-Score, Modeler, SPFN, SPFP and TC from stdout+stderr, and prints one JSON line. It exits non-zero if FastSP fails, a metric is missing, or a path is outside the project.
+
+Verification:
+| Check | Result |
+|---|---|
+| Smoke alignment vs itself: SPFN = 0, SPFP = 0 | PASS — `{"SP-Score": 1.0, "Modeler": 1.0, "SPFN": 0.0, "SPFP": 0.0, "TC": 1.0}` |
+| vs a copy with one column's gaps shifted: SPFN > 0 or SPFP > 0 | PASS — column 1, 2 rows' residue/gap swapped (copy still passes `validate_alignment.py`): SPFN 4.04e-6, SPFP 4.06e-6, TC 0.99924 |
+
+Extra checks: a path outside the project is rejected (exit 1). For reference, the smoke output vs the example's `true_alignment.txt` scores SPFN 0.0994, SPFP 0.0945, TC 0.173.
