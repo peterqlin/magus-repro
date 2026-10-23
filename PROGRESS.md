@@ -133,3 +133,41 @@ Verification:
 | vs a copy with one column's gaps shifted: SPFN > 0 or SPFP > 0 | PASS — column 1, 2 rows' residue/gap swapped (copy still passes `validate_alignment.py`): SPFN 4.04e-6, SPFP 4.06e-6, TC 0.99924 |
 
 Extra checks: a path outside the project is rejected (exit 1). For reference, the smoke output vs the example's `true_alignment.txt` scores SPFN 0.0994, SPFP 0.0945, TC 0.173.
+
+## Step 5 — Inventory and stage the ROSE datasets
+
+**2026-10-23 20:45 UTC** — step COMPLETE
+
+Done:
+- Extracted `data/raw/Datasets.zip` → `data/raw/extracted/Datasets/` (`unzip -n`, zip untouched).
+- `scripts/inventory.py` walks the extracted tree and classifies each dataset directory's files; full output in `data/inventory.tsv` (243 dirs: 200 ROSE, 30 RNASim, 4 Gutell, 8 balibase, 1 stray `outputs/`).
+- `scripts/stage_rose.py` stages the 60 ROSE datasets and is idempotent (a rerun reported 60 × "unchanged").
+
+Archive structure (Datasets/):
+| Group | Replicates | Reference file | Unaligned file | Other files |
+|---|---|---|---|---|
+| ROSE/1000{M1–M4,L1–L3,S1–S3} | R0–R19 (20 each), 1000 seqs | `rose.aln.true.fasta` (leaves only) | none | `rose.aln.true.internal.fasta` (includes ancestral seqs; not used), `random.tree`, `rose.mt`, `rose.mt.internal`, `rose.tt` |
+| RNASim/1000 | R0–R19 (20), 1000 seqs | `true_align.txt` | none | `true_tree.tre` |
+| RNASim/10000 | 10, 10000 seqs | `true_align.txt` | none | `true_tree.tre` |
+| Gutell/{16S.3, 16S.B.ALL, 16S.M, 16S.T} | 1 each | `true_align_clean.txt` | none | `cleaned.alignment.fasta(.name_map)`, reference trees |
+| balibase/RV100_* | 8 | `true.fasta` | none | `true.tt` |
+
+Staging decisions:
+- Reference = `rose.aln.true.fasta`; `unaligned.fasta` = its rows with gaps stripped (the archive has no unaligned files).
+- Replicate numbering: archive `R<k>` (0-based) → `<cond>_R<k+1>` (`R0` → `R01`, …, `R19` → `R20`). Each staged dir has `source.txt` naming its archive file.
+- All-gap column stripping is applied, but the archive references had none (0 removed in all 60).
+- Ignored: `ROSE/1000M1/R4/outputs/` holds `logdet.txt` and `logdet_2.txt` (LogDet distance matrices left over from some earlier analysis). It is the only such directory, and R4's own files are the standard set.
+
+Archive contents relevant to later steps:
+- **1000-sequence RNASim samples: YES** — `RNASim/1000/R0–R19` (20 samples), so Step 6 picks 10 of them with `RNASIM_SEED` and M3 isn't needed.
+- **Published MAGUS alignments or scores: NO** — the archive holds only true alignments and trees; no estimated alignments or score files. Step 11 will need `published_manual.csv` from the paper's figures.
+
+Verification:
+| Check | Result |
+|---|---|
+| 20 staged dirs per ROSE condition (60 total) | PASS — 1000M1: 20, 1000L1: 20, 1000S1: 20 |
+| Each unaligned has exactly 1000 seqs, unique IDs | PASS (60/60) |
+| `validate_alignment.py unaligned reference` passes | PASS (60/60) |
+| No reference has all-gap columns | PASS (0 total) |
+
+Dataset shape: reference width 1000M1 3443–4517, 1000L1 3309–4446, 1000S1 1898–2357 columns; mean unaligned length ≈ 1000–1015 nt in all three.
