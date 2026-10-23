@@ -4,7 +4,8 @@ Spec: `docs/spec.md` (the spec's layout shows `spec.md` at the repo root; it liv
 
 ## Step 0 — Scaffold and config
 
-**2026-10-23 14:18** — BLOCKED on M2
+**2026-10-23 14:18** — blocked on M2
+**2026-10-23 14:25** — M2 satisfied; step COMPLETE
 
 Done:
 - `git init`; created `docker/`, `vendor/`, `data/raw/`, `data/datasets/`, `scripts/`, `runs/`, `results/`; `.gitignore` excludes `data/raw/*`, staged datasets, run dirs and `vendor/`.
@@ -15,7 +16,7 @@ Verification:
 |---|---|
 | `source config.env` defines all vars, all but MAGUS_COMMIT non-empty | PASS |
 | `docker info` exits 0 | PASS (Docker Desktop, VM: 6 CPUs, 3.8 GiB RAM, aarch64) |
-| `data/raw/` contains M2 archive(s) | **FAIL** — empty |
+| `data/raw/` contains M2 archive(s) | PASS — `Datasets.zip` (392 MB; top-level groups: ROSE, RNASim, Gutell, balibase). No separate results archive provided. (Initially FAIL: empty.) |
 | Free disk ≥ 20 GB | PASS (321 GiB free) |
 
 Notes:
