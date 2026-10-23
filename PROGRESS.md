@@ -87,3 +87,33 @@ Verification:
 ## Step 3 — Smoke test MAGUS
 
 **2026-10-23 19:28 UTC** — attempt 1 ABORTED at the user's request after ~22 min. It was still in the first phase (MAFFT L-INS-i on the 300-seq guide-tree skeleton, 4 threads, ~500 MiB RSS) under QEMU amd64 emulation. `runs/_smoke/` removed. The user is enabling Rosetta for x86/amd64 emulation in Docker Desktop before retrying.
+
+**2026-10-23 19:52 UTC** — attempt 2, with Docker Desktop's Rosetta x86/amd64 emulation enabled (`UseVirtualizationFrameworkRosetta: true`); step COMPLETE
+
+Done:
+- Input: `vendor/MAGUS/example/unaligned_sequences.txt` (1000 seqs) → `runs/_smoke/unaligned.fasta`.
+- Command: `scripts/dk.sh /usr/bin/time -v -o runs/_smoke/time.txt python3 /opt/MAGUS/magus.py -d runs/_smoke/work -i runs/_smoke/unaligned.fasta -o runs/_smoke/magus.aln -np 4`
+- Wrote `scripts/validate_alignment.py`.
+
+Timing (from the MAGUS log):
+| Phase | Time |
+|---|---|
+| Guide tree (MAFFT 300-seq skeleton + HMM extend + FastTree) | 350 s (attempt 1 under QEMU: not done after ~22 min) |
+| 25 subset alignments | 134 s |
+| 10 backbones (4 workers × `--thread 4`) | ~19 min (20:00:20 → 20:19:16) |
+| Graph + MCL + minclusters trace + write | ~26 s (trace: 1017 clusters) |
+| **Total** | **27:27 wall** (MAGUS: 1646.5 s); max RSS 531 MiB |
+
+Verification:
+| Check | Result |
+|---|---|
+| MAGUS exits 0, output non-empty | PASS — exit 0; `magus.aln` 3.8 MB, 1000 seqs |
+| `validate_alignment.py` passes on the smoke output | PASS (no all-gap-column warning) |
+| Fails on a copy with one residue changed | PASS — exit 1, "1 rows don't degap to their input sequence" (SEJG, G→A) |
+| Fails on a copy with one sequence removed | PASS — exit 1, "1 IDs missing from alignment" (SEJG) |
+
+Extra check: the validator also passes on the example's `true_alignment.txt`.
+
+Notes:
+- GNU time's "Maximum resident set size" is the peak of the single largest process (MAFFT or Python), not the sum over concurrent MAFFT workers; `docker stats` showed ~1.8 GiB for the whole container during the backbone phase. Relevant to the `max_rss_mb` column in Step 10.
+- `-np 4` gives 4 concurrent MAFFT backbones × 4 threads each = 16 threads on the VM's 6 CPUs.
