@@ -171,3 +171,29 @@ Verification:
 | No reference has all-gap columns | PASS (0 total) |
 
 Dataset shape: reference width 1000M1 3443–4517, 1000L1 3309–4446, 1000S1 1898–2357 columns; mean unaligned length ≈ 1000–1015 nt in all three.
+
+## Step 6 — Stage the RNASim datasets
+
+**2026-10-23 20:55 UTC** — step COMPLETE (took the archive branch: ready-made 1000-sequence samples exist, so M3 and `sample_rnasim.py` aren't needed)
+
+Done:
+- `scripts/stage_rnasim.py` chooses `RNASIM_N`=10 of the 20 archive samples `RNASim/1000/R0–R19` with `random.Random(RNASIM_SEED=20261023).sample(range(20), 10)`, sorted, and stages them as `RNASim_R01–R10`. Same transformation as ROSE: all-gap columns stripped from `true_align.txt` → `reference.fasta` (0 removed, since the archive has none), gaps stripped → `unaligned.fasta`; also `ids.txt` and `source.txt`. The mapping is in `data/datasets/rnasim_selection.tsv`.
+
+Selection (staged name ← archive sample):
+| R01 | R02 | R03 | R04 | R05 | R06 | R07 | R08 | R09 | R10 |
+|---|---|---|---|---|---|---|---|---|---|
+| R0 | R1 | R5 | R6 | R7 | R8 | R9 | R11 | R17 | R19 |
+
+Verification:
+| Check | Result |
+|---|---|
+| Exactly 10 RNASim dirs | PASS |
+| 1000 seqs each, unique IDs | PASS (10/10) |
+| `validate_alignment.py unaligned reference` passes | PASS (10/10) |
+| No reference has all-gap columns | PASS (0) |
+| *(sampled branch only)* rerun gives byte-identical outputs | not required (archive branch); checked anyway: rerun → 10 × "unchanged", `shasum` of all 41 files identical |
+| *(sampled branch only)* samples share no IDs | not required (archive branch); see note |
+
+Dataset shape: reference width 4702–4903 columns; mean unaligned length ≈ 1554 nt (about 1.5× the ROSE sequences, so expect longer MAGUS runs).
+
+Note — overlap between archive samples: the 20 archive samples share 162 IDs (19,837 distinct of 20,000); our 10 share 41 IDs (each in at most 2 samples), and every shared ID has an identical sequence in both. So the archive's samples were drawn independently from the full RNASim alignment, not as disjoint sets. This is how the original data was built; replicates overlap by ~0.4% of sequences.
