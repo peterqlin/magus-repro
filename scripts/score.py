@@ -3,7 +3,8 @@
 
 Usage: score.py <reference.fasta> <estimated.fasta>
 
-Prints one JSON line with SP-Score, Modeler, SPFN, SPFP and TC.
+Prints one JSON line with SP-Score, Modeler, SPFN, SPFP, TC and
+SPFN_SPFP_mean = (SPFN + SPFP) / 2.
 Both files must be inside the project directory, which the container mounts at /work.
 """
 
@@ -43,6 +44,7 @@ def score(reference, estimated):
     missing = [m for m in METRICS if m not in values]
     if missing:
         raise RuntimeError("FastSP output is missing {}:\n{}{}".format(missing, proc.stdout, proc.stderr))
+    values["SPFN_SPFP_mean"] = (values["SPFN"] + values["SPFP"]) / 2
     return values
 
 

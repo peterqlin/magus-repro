@@ -247,3 +247,12 @@ Projected full batch at `PARALLEL_JOBS=1`, using the mean ROSE pilot time (1883 
 - All 70: 60 × 1883 s + 10 × 5487 s ≈ 167,900 s ≈ **46.6 h**.
 - Remaining after the 4 pilots (which `DONE` skips): 57 × 1883 + 9 × 5487 ≈ 156,700 s ≈ **43.5 h**.
 - Caveat: one pilot per condition; replicate-to-replicate variation (ROSE reference widths 1898–4517) is not captured.
+
+**2026-10-24 ~00:25 UTC** — deviation, at the user's request: added the metric `SPFN_SPFP_mean` = (SPFN + SPFP) / 2. `score.py` adds it to its JSON output; `results/pilot_scores.csv` regenerated with the new column (scores otherwise unchanged). It will also be carried into `results/scores.csv` (Step 10), the `summary.csv` mean/SD/SE (Step 11) and the comparison, beyond the spec's listed columns.
+
+| Pilot | SPFN_SPFP_mean |
+|---|---|
+| 1000M1_R01 | 0.1008 |
+| 1000L1_R01 | 0.0880 |
+| 1000S1_R01 | 0.0722 |
+| RNASim_R01 | 0.0949 |
