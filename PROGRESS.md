@@ -240,7 +240,7 @@ Verification:
 | All 4 pass validation | PASS (re-checked with `validate_alignment.py`) |
 | Parseable wall time and max RSS | PASS |
 | SPFN/SPFP in [0, 1] | PASS (0.070–0.104) |
-| Within 0.02 of published scores for these replicates | N/A — the archive has no per-replicate published scores (Step 5) → reported to the user for review; **STOPPED pending confirmation** |
+| Within 0.02 of published scores for these replicates | N/A — the archive has no per-replicate published scores (Step 5) → reported to the user for review; the user confirmed on 2026-10-24 that they look reasonable |
 | Rerunning `run_one.sh` on a pilot returns immediately | PASS — "DONE exists, skipping", 0.00 s (1000M1_R01, RNASim_R01) |
 
 Projected full batch at `PARALLEL_JOBS=1`, using the mean ROSE pilot time (1883 s) and the RNASim pilot time (5487 s):
@@ -256,3 +256,5 @@ Projected full batch at `PARALLEL_JOBS=1`, using the mean ROSE pilot time (1883 
 | 1000L1_R01 | 0.0880 |
 | 1000S1_R01 | 0.0722 |
 | RNASim_R01 | 0.0949 |
+
+**2026-10-24 ~00:35 UTC** — the user reviewed the pilot scores and confirmed they look reasonable; step COMPLETE
