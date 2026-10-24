@@ -212,3 +212,38 @@ Verification:
 | All paths exist | PASS (140/140) |
 | `n_seqs` = 1000 for every row | PASS |
 | Names unique | PASS |
+
+## Step 8 — Runner and pilot runs
+
+**2026-10-23 20:38 UTC** — wrote `scripts/run_one.sh`; `dk.sh` gained an optional `DK_NAME` (container name). Pilot attempt 1 launched (detached, `nohup caffeinate -i`, sequential) and STOPPED at the user's request at ~20:50 UTC because the Mac was on battery; to be restarted on AC power. Only `1000M1_R01` had started (guide tree 362 s and subsets 129 s, in line with the smoke test; stopped during backbones). It had no `DONE`; `runs/1000M1_R01/` and `runs/pilot.log` removed.
+
+**2026-10-23 21:05 UTC** — pilot attempt 2 (on AC power, detached, `nohup caffeinate -is`, sequential) — all 4 pilots done by 00:11:22 UTC; awaiting the user's review of the pilot scores
+
+Done:
+- `scripts/pilot_scores.py` scores the pilots with `score.py`, parses `time.txt`, and writes `results/pilot_scores.csv`.
+- No sleep events during the runs (`pmset -g log`: last wake 21:05:20 UTC, before the start). The user's screen locked at one point (display sleep only).
+
+Pilot results:
+| Pilot | Wall | Max RSS (GNU time) | SPFN | SPFP | SP-score | TC |
+|---|---|---|---|---|---|---|
+| 1000M1_R01 | 31:42 (1901.8 s) | 539.7 MiB | 0.1037 | 0.0980 | 0.8963 | 0.1631 |
+| 1000L1_R01 | 32:08 (1928.1 s) | 524.6 MiB | 0.0932 | 0.0828 | 0.9068 | 0.2779 |
+| 1000S1_R01 | 30:20 (1819.5 s) | 372.2 MiB | 0.0740 | 0.0705 | 0.9260 | 0.0464 |
+| RNASim_R01 | 1:31:27 (5487.0 s) | 947.1 MiB | 0.0960 | 0.0937 | 0.9040 | 0.0391 |
+
+RNASim phases: guide tree 1380 s (≈3.6× ROSE), subsets 272 s (≈2×), backbones 23:07:27 → 00:11:06 (≈64 min, ≈3× ROSE).
+
+Verification:
+| Check | Result |
+|---|---|
+| All 4 pilots have `DONE` | PASS |
+| All 4 pass validation | PASS (re-checked with `validate_alignment.py`) |
+| Parseable wall time and max RSS | PASS |
+| SPFN/SPFP in [0, 1] | PASS (0.070–0.104) |
+| Within 0.02 of published scores for these replicates | N/A — the archive has no per-replicate published scores (Step 5) → reported to the user for review; **STOPPED pending confirmation** |
+| Rerunning `run_one.sh` on a pilot returns immediately | PASS — "DONE exists, skipping", 0.00 s (1000M1_R01, RNASim_R01) |
+
+Projected full batch at `PARALLEL_JOBS=1`, using the mean ROSE pilot time (1883 s) and the RNASim pilot time (5487 s):
+- All 70: 60 × 1883 s + 10 × 5487 s ≈ 167,900 s ≈ **46.6 h**.
+- Remaining after the 4 pilots (which `DONE` skips): 57 × 1883 + 9 × 5487 ≈ 156,700 s ≈ **43.5 h**.
+- Caveat: one pilot per condition; replicate-to-replicate variation (ROSE reference widths 1898–4517) is not captured.
