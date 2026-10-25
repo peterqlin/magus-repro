@@ -64,6 +64,17 @@ Verification:
 
 **Addendum (2026-10-23 ~20:00 UTC)** — at the user's request, `vendor/MAGUS` is now a git submodule (url `https://github.com/vlasmirnov/MAGUS`, recorded at `416ec51`) instead of an untracked, gitignored clone. `scripts/build_image.sh` runs `git submodule update --init vendor/MAGUS` and refuses to build unless `vendor/MAGUS` is at `MAGUS_COMMIT` with no uncommitted changes. It labels the image `magus.commit=<sha>`. Image rebuilt (layers unchanged); label verified = `416ec513e4ef6bd5393f6ffb705cc3746a223bcd`; a deliberately wrong `MAGUS_COMMIT` makes the build exit 1.
 
+**Addendum (2026-10-25)** — **re-pinned to the newest commit, `39041fc8da5dcb44c95e90c212c667cf225ec129`** (2024-03-25, "Merge pull request #33 from lrauschning/master", HEAD of `vlasmirnov/MAGUS`), at the team's request: the project's own methods are built on this version of MAGUS. `vendor/MAGUS` submodule and `MAGUS_COMMIT` updated.
+
+- Entry point: the `magus` package (`magus.main:main`), run as `magus` in the image (see Step 2 addendum); `magus.py` no longer exists.
+- Defaults: the HEAD column of the table above. Step 1's PASTA-style starting tree is still the default: `-t fasttree` builds "PASTA-style FastTree initial tree … with skeleton size 300" (MAFFT L-INS-i on a 300-sequence skeleton, HMM-extend the rest, FastTreeMP), as the Step 3 log shows.
+- New defaults absent at the old pin: `-c/--constrain` true, `--recurse` true with `--recursethreshold 200` (only subsets larger than 200 sequences are aligned recursively; with `--maxsubsetsize 50` and 25 subsets of 1000 sequences none are).
+
+| Check | Result |
+|---|---|
+| `rev-parse HEAD` == `MAGUS_COMMIT` | PASS (`39041fc8da5dcb44c95e90c212c667cf225ec129`) |
+| `git status --porcelain` empty (in `vendor/MAGUS`) | PASS |
+
 ## Step 2 — Build the Docker image
 
 **2026-10-23 14:50** — step COMPLETE
@@ -83,6 +94,17 @@ Verification:
 | `/usr/bin/time -v true` prints max RSS | PASS |
 | `java -version` exits 0 | PASS — OpenJDK 17.0.20.1 |
 | Output files owned by host user | PASS |
+
+**Addendum (2026-10-25)** — rebuilt for the new pin. `docker/Dockerfile`: MAGUS is now a package with its tools under `magus/tools/`, so it is copied to `/opt/MAGUS` and run from there on `PYTHONPATH` (the tools stay where `magus.configuration` looks for them); `/usr/local/bin/magus` is upstream's console script (`python3 -m magus.main`). Added `libgomp1`: the bundled FastTreeMP (the default guide tree) is linked against OpenMP and does not start without it. Built and checked on a Linux x86-64 host (native, 4 cores, Docker 29.8.2), label `magus.commit=39041fc8da5dcb44c95e90c212c667cf225ec129`; rebuild locally with `scripts/build_image.sh`.
+
+| Check | Result |
+|---|---|
+| `dk.sh magus -h` exits 0, shows Step 1 flags | PASS (-t, --maxnumsubsets, --maxsubsetsize, -r, -m, --graphtracemethod, -np; also -c, --recurse) |
+| Bundled MAFFT runs | PASS — `v7.450 (2019/Aug/23)` |
+| Bundled MCL runs | PASS — `mcl 14-137` |
+| Bundled FastTreeMP runs | PASS — `FastTree Version 2.1.11 SSE3, OpenMP` |
+| `/usr/bin/time -v true` prints max RSS | PASS |
+| `java -version` exits 0 | PASS — OpenJDK 17.0.21 |
 
 ## Step 3 — Smoke test MAGUS
 
@@ -117,6 +139,25 @@ Extra check: the validator also passes on the example's `true_alignment.txt`.
 Notes:
 - GNU time's "Maximum resident set size" is the peak of the single largest process (MAFFT or Python), not the sum over concurrent MAFFT workers; `docker stats` showed ~1.8 GiB for the whole container during the backbone phase. Relevant to the `max_rss_mb` column in Step 10.
 - `-np 4` gives 4 concurrent MAFFT backbones × 4 threads each = 16 threads on the VM's 6 CPUs.
+
+**Addendum (2026-10-25)** — smoke test rerun at the new pin (same host as the Step 2 addendum). Command: `scripts/dk.sh /usr/bin/time -v -o runs/_smoke/time.txt magus -d runs/_smoke/work -i runs/_smoke/unaligned.fasta -o runs/_smoke/magus.aln -np 4`.
+
+| Phase | Time |
+|---|---|
+| Guide tree (MAFFT 300-seq skeleton + HMM extend + FastTreeMP) | 262 s |
+| Subset alignments, 10 backbones, graph, MCL | 20:26 |
+| Trace + write (1007 clusters, trace of 1036) | 3 s |
+| **Total** | **24:51 wall** (MAGUS: 1490.5 s); max RSS 451 MiB |
+
+| Check | Result |
+|---|---|
+| MAGUS exits 0, output non-empty | PASS — exit 0; `magus.aln` 3.8 MB, 1000 seqs |
+| `validate_alignment.py` passes on the smoke output | PASS |
+| Fails on a copy with one residue changed | PASS — exit 1, "1 rows don't degap to their input sequence" (SHEF) |
+| Fails on a copy with one sequence removed | PASS — exit 1, "1 IDs missing from alignment" (SHEF) |
+| Step 4: smoke alignment vs itself | PASS — SPFN 0.0, SPFP 0.0, TC 1.0 |
+
+For reference, vs the example's `true_alignment.txt`: SPFN 0.1077, SPFP 0.0962, TC 0.195 (old pin: 0.0994, 0.0945, 0.173).
 
 ## Step 4 — Set up FastSP
 

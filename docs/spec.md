@@ -81,7 +81,7 @@ magus-repro/
 
 **Do**
 - `git clone https://github.com/vlasmirnov/MAGUS vendor/MAGUS`.
-- Inspect `git log` and propose a commit contemporaneous with the original paper (late 2020, before the Recursive MAGUS changes). Report the candidate SHA, its date, and its message, plus HEAD for comparison. **Stop and ask me to approve (M4).**
+- Inspect `git log` and propose the newest commit (HEAD), the MAGUS version the project's own methods are built on. Report its SHA, date and message. **Stop and ask me to approve (M4).**
 - After approval: `git checkout <sha>`, and write the SHA into `config.env`.
 - From the pinned checkout, record in `PROGRESS.md`:
   - the entry point (`magus.py` at the repo root vs. the `magus` package),
