@@ -3,7 +3,7 @@
 
 Usage: stage_rnasim.py
 
-The chosen archive samples R<k>, sorted by k, become data/datasets/RNASim_R01 ... with:
+The chosen archive samples R<k> become data/datasets/RNASim_R<k> (the archive's own names) with:
   reference.fasta  true_align.txt with all-gap columns removed
   unaligned.fasta  the reference rows with gaps removed
   ids.txt          the sequence IDs, one per line
@@ -41,9 +41,9 @@ def main():
     chosen = select(seed, n)
 
     rows = ["name\tarchive_sample\tsource"]
-    for i, k in enumerate(chosen, start=1):
+    for k in chosen:
         src = os.path.join(ARCHIVE, "R{}".format(k), "true_align.txt")
-        name = "RNASim_R{:02d}".format(i)
+        name = "RNASim_R{}".format(k)
         dest = os.path.join(OUT, name)
         os.makedirs(dest, exist_ok=True)
 

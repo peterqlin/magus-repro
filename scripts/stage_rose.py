@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Stage the ROSE 1000M1, 1000L1 and 1000S1 replicates from the extracted archive.
+"""Stage the ROSE 1000M1, 1000L3 and 1000S1 replicates from the extracted archive.
 
 Usage: stage_rose.py
 
-Archive replicate R<k> (k = 0..19) becomes data/datasets/<cond>_R<k+1, two digits>/ with:
+Archive replicate R<k> (k = 0..19) becomes data/datasets/<cond>_R<k>/ (the archive's own name) with:
   reference.fasta  rose.aln.true.fasta with all-gap columns removed
   unaligned.fasta  the reference rows with gaps removed
   source.txt       the archive file the dataset came from
@@ -15,7 +15,7 @@ import os
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ARCHIVE = os.path.join(ROOT, "data", "raw", "extracted", "Datasets", "ROSE")
 OUT = os.path.join(ROOT, "data", "datasets")
-CONDITIONS = ["1000M1", "1000L1", "1000S1"]
+CONDITIONS = ["1000M1", "1000L3", "1000S1"]
 REPLICATES = 20
 
 
@@ -57,7 +57,7 @@ def main():
     for cond in CONDITIONS:
         for k in range(REPLICATES):
             src = os.path.join(ARCHIVE, cond, "R{}".format(k), "rose.aln.true.fasta")
-            name = "{}_R{:02d}".format(cond, k + 1)
+            name = "{}_R{}".format(cond, k)
             dest = os.path.join(OUT, name)
             os.makedirs(dest, exist_ok=True)
 
