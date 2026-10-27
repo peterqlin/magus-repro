@@ -7,8 +7,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 source "$ROOT/scripts/config.sh"
 
 if [ "$CONTAINER_RUNTIME" = apptainer ]; then
-    exec apptainer exec --cleanenv --no-home \
-        --env HOME=/tmp \
+    exec apptainer exec --cleanenv --home /tmp \
         --bind "$ROOT":/work --pwd /work \
         "$ROOT/$SIF_IMAGE" "$@"
 fi
