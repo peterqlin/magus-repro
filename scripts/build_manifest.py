@@ -5,20 +5,32 @@ Usage: build_manifest.py
 
 Columns: name, condition, replicate, unaligned, reference, n_seqs, ref_length.
 Paths are relative to the project root; ref_length is the reference alignment width.
+The rows are the datasets stage_rose.py and stage_rnasim.py stage (the archive's replicate names); any other
+directory in data/datasets/ (e.g. left over from an earlier naming) is reported and left out.
 """
 
-import glob
 import os
+import sys
 
-from stage_rose import ROOT, read_fasta, write_if_changed
+from stage_rose import CONDITIONS, OUT, REPLICATES, ROOT, read_fasta, write_if_changed
+from stage_rnasim import load_config, select
 
 COLUMNS = ["name", "condition", "replicate", "unaligned", "reference", "n_seqs", "ref_length"]
-CONDITION_ORDER = ["1000M1", "1000L1", "1000S1", "RNASim"]
+CONDITION_ORDER = ["1000M1", "1000L3", "1000S1", "RNASim"]
 
 
-def rows():
-    for d in glob.glob(os.path.join(ROOT, "data", "datasets", "*_R[0-9][0-9]")):
-        name = os.path.basename(d)
+def expected_names():
+    config = load_config()
+    rnasim = select(int(config["RNASIM_SEED"]), int(config["RNASIM_N"]))
+    return (["{}_R{}".format(cond, k) for cond in CONDITIONS for k in range(REPLICATES)] +
+            ["RNASim_R{}".format(k) for k in rnasim])
+
+
+def rows(names):
+    for name in names:
+        d = os.path.join(OUT, name)
+        if not os.path.isdir(d):
+            sys.exit("missing staged dataset: " + os.path.relpath(d, ROOT))
         condition, replicate = name.rsplit("_R", 1)
         unaligned = os.path.join(d, "unaligned.fasta")
         reference = os.path.join(d, "reference.fasta")
@@ -35,7 +47,11 @@ def rows():
 
 
 def main():
-    ordered = sorted(rows(), key=lambda r: (CONDITION_ORDER.index(r["condition"]), r["replicate"]))
+    names = expected_names()
+    extra = sorted(d for d in os.listdir(OUT) if os.path.isdir(os.path.join(OUT, d)) and d not in names)
+    if extra:
+        print("left out (not staged by stage_rose.py / stage_rnasim.py): " + " ".join(extra), file=sys.stderr)
+    ordered = sorted(rows(names), key=lambda r: (CONDITION_ORDER.index(r["condition"]), r["replicate"]))
     text = "\t".join(COLUMNS) + "\n" + "".join("\t".join(str(r[c]) for c in COLUMNS) + "\n" for r in ordered)
     path = os.path.join(ROOT, "data", "manifest.tsv")
     print("{} rows, {}".format(len(ordered), "written" if write_if_changed(path, text) else "unchanged"))

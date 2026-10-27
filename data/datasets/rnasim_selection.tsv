@@ -1,12 +1,12 @@
 # RNASIM_SEED=20261023 RNASIM_N=10; random.Random(seed).sample(range(20), n), sorted
 name	archive_sample	source
-RNASim_R01	R0	data/raw/extracted/Datasets/RNASim/1000/R0/true_align.txt
-RNASim_R02	R1	data/raw/extracted/Datasets/RNASim/1000/R1/true_align.txt
-RNASim_R03	R5	data/raw/extracted/Datasets/RNASim/1000/R5/true_align.txt
-RNASim_R04	R6	data/raw/extracted/Datasets/RNASim/1000/R6/true_align.txt
-RNASim_R05	R7	data/raw/extracted/Datasets/RNASim/1000/R7/true_align.txt
-RNASim_R06	R8	data/raw/extracted/Datasets/RNASim/1000/R8/true_align.txt
-RNASim_R07	R9	data/raw/extracted/Datasets/RNASim/1000/R9/true_align.txt
-RNASim_R08	R11	data/raw/extracted/Datasets/RNASim/1000/R11/true_align.txt
-RNASim_R09	R17	data/raw/extracted/Datasets/RNASim/1000/R17/true_align.txt
-RNASim_R10	R19	data/raw/extracted/Datasets/RNASim/1000/R19/true_align.txt
+RNASim_R0	R0	data/raw/extracted/Datasets/RNASim/1000/R0/true_align.txt
+RNASim_R1	R1	data/raw/extracted/Datasets/RNASim/1000/R1/true_align.txt
+RNASim_R5	R5	data/raw/extracted/Datasets/RNASim/1000/R5/true_align.txt
+RNASim_R6	R6	data/raw/extracted/Datasets/RNASim/1000/R6/true_align.txt
+RNASim_R7	R7	data/raw/extracted/Datasets/RNASim/1000/R7/true_align.txt
+RNASim_R8	R8	data/raw/extracted/Datasets/RNASim/1000/R8/true_align.txt
+RNASim_R9	R9	data/raw/extracted/Datasets/RNASim/1000/R9/true_align.txt
+RNASim_R11	R11	data/raw/extracted/Datasets/RNASim/1000/R11/true_align.txt
+RNASim_R17	R17	data/raw/extracted/Datasets/RNASim/1000/R17/true_align.txt
+RNASim_R19	R19	data/raw/extracted/Datasets/RNASim/1000/R19/true_align.txt

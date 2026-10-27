@@ -213,6 +213,17 @@ Verification:
 
 Dataset shape: reference width 1000M1 3443–4517, 1000L1 3309–4446, 1000S1 1898–2357 columns; mean unaligned length ≈ 1000–1015 nt in all three.
 
+**Addendum (2026-10-25)** — restaged with **1000L3 instead of 1000L1** (the professor's dataset list is 1000M1, 1000S1, 1000L3) and with the **archive's own replicate names**: archive `R<k>` → `<cond>_R<k>` (`R0`–`R19`), no renumbering, so a name means the same replicate here, in the archive and in the project's other results. `stage_rose.py`: `CONDITIONS = ["1000M1", "1000L3", "1000S1"]`, `name = <cond>_R<k>`. Same archive as above (`inventory.py` output identical to `data/inventory.tsv`, 244 lines). Rerun: 60 × "written", then 60 × "unchanged".
+
+| Check | Result |
+|---|---|
+| 20 staged dirs per ROSE condition (60 total) | PASS — 1000M1: 20, 1000L3: 20, 1000S1: 20 |
+| Each unaligned has exactly 1000 seqs, unique IDs | PASS (60/60) |
+| `validate_alignment.py unaligned reference` passes | PASS (60/60) |
+| No reference has all-gap columns | PASS (0 total) |
+
+1000L3 reference width: 6030–7965 columns. 1000M1 and 1000S1 are unchanged apart from the names (same `n_seqs` and `ref_length` per replicate as before).
+
 ## Step 6 — Stage the RNASim datasets
 
 **2026-10-23 20:55 UTC** — step COMPLETE (took the archive branch: ready-made 1000-sequence samples exist, so M3 and `sample_rnasim.py` aren't needed)
@@ -239,6 +250,8 @@ Dataset shape: reference width 4702–4903 columns; mean unaligned length ≈ 15
 
 Note — overlap between archive samples: the 20 archive samples share 162 IDs (19,837 distinct of 20,000); our 10 share 41 IDs (each in at most 2 samples), and every shared ID has an identical sequence in both. So the archive's samples were drawn independently from the full RNASim alignment, not as disjoint sets. This is how the original data was built; replicates overlap by ~0.4% of sequences.
 
+**Addendum (2026-10-25)** — RNASim directories now carry the archive sample's name (`RNASim_R<k>`): `RNASim_R0 R1 R5 R6 R7 R8 R9 R11 R17 R19` (same seed, same 10 samples). `data/datasets/rnasim_selection.tsv` still records the selection. Rerun: 10 × "unchanged"; 10 dirs, 1000 seqs each, unique IDs, `validate_alignment.py` passes (10/10), no all-gap columns.
+
 ## Step 7 — Build the manifest
 
 **2026-10-23 21:05 UTC** — step COMPLETE
@@ -253,3 +266,13 @@ Verification:
 | All paths exist | PASS (140/140) |
 | `n_seqs` = 1000 for every row | PASS |
 | Names unique | PASS |
+
+**Addendum (2026-10-25)** — `build_manifest.py` now lists exactly the datasets the two staging scripts produce (ROSE `<cond>_R0`–`R19` for each condition, and the RNASim names from `RNASIM_SEED`). It exits non-zero if one is missing, and any other directory in `data/datasets/` (for example `1000L1_R01`… left over from the earlier staging) is reported on stderr and left out; those can be deleted (`data/datasets/*/` is derived from `data/raw/`). Rows are ordered 1000M1, 1000L3, 1000S1, RNASim, then by replicate.
+
+| Check | Result |
+|---|---|
+| Exactly 70 data rows: 20 × 1000M1, 20 × 1000L3, 20 × 1000S1, 10 × RNASim | PASS |
+| All paths exist | PASS (140/140) |
+| `n_seqs` = 1000 for every row | PASS |
+| Names unique | PASS |
+| Rerun | "70 rows, unchanged" |
