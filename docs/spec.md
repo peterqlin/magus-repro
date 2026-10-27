@@ -7,7 +7,7 @@ Run MAGUS (Smirnov & Warnow, *Bioinformatics* 2021, doi:10.1093/bioinformatics/b
 | Condition | Source | Replicates | Sequences each |
 |---|---|---|---|
 | 1000M1 | ROSE (from the MAGUS data archive) | 20 | 1000 |
-| 1000L1 | ROSE | 20 | 1000 |
+| 1000L3 | ROSE | 20 | 1000 |
 | 1000S1 | ROSE | 20 | 1000 |
 | RNASim-1000 | RNASim, 1000-sequence samples | 10 | 1000 |
 
@@ -81,7 +81,7 @@ magus-repro/
 
 **Do**
 - `git clone https://github.com/vlasmirnov/MAGUS vendor/MAGUS`.
-- Inspect `git log` and propose a commit contemporaneous with the original paper (late 2020, before the Recursive MAGUS changes). Report the candidate SHA, its date, and its message, plus HEAD for comparison. **Stop and ask me to approve (M4).**
+- Inspect `git log` and propose the newest commit (HEAD), the MAGUS version the project's own methods are built on. Report its SHA, date and message. **Stop and ask me to approve (M4).**
 - After approval: `git checkout <sha>`, and write the SHA into `config.env`.
 - From the pinned checkout, record in `PROGRESS.md`:
   - the entry point (`magus.py` at the repo root vs. the `magus` package),
@@ -138,7 +138,7 @@ magus-repro/
 **Do**
 - Extract the M2 archive(s) into `data/raw/extracted/` (without touching the original zip).
 - Write `scripts/inventory.py` that lists every dataset directory found and, for each, the file that looks like the unaligned input and the reference/true alignment. Report the structure in `PROGRESS.md`. If the naming is ambiguous, **stop and ask** rather than guess.
-- Stage each ROSE replicate as `data/datasets/<cond>_R<NN>/unaligned.fasta` and `reference.fasta`, with `cond` ∈ {1000M1, 1000L1, 1000S1} and `NN` = 01–20. If the archive has only a reference alignment, make `unaligned.fasta` by stripping gaps from it.
+- Stage each ROSE replicate as `data/datasets/<cond>_R<k>/unaligned.fasta` and `reference.fasta`, with `cond` ∈ {1000M1, 1000L3, 1000S1} and `R<k>` the archive's own replicate name (`R0`–`R19`), so a dataset has the same name here as in the archive. If the archive has only a reference alignment, make `unaligned.fasta` by stripping gaps from it.
 - Strip all-gap columns from each staged reference.
 - Determine whether the archive also includes **1000-sequence RNASim samples** and/or **published MAGUS alignments or scores** for these conditions; record the answer.
 
@@ -151,8 +151,8 @@ magus-repro/
 
 **Do**
 - **If** the archive contains 1000-sequence RNASim samples: stage 10 of them (if there are more than 10, choose with `RNASIM_SEED` and record which).
-- **Else**: require M3 (stop if missing). Write `scripts/sample_rnasim.py`, which samples `RNASIM_N` disjoint sets of `RNASIM_SIZE` sequences from the full reference with `RNASIM_SEED`, writes the induced sub-alignment with all-gap columns removed as `reference.fasta`, and the gap-stripped sequences as `unaligned.fasta`. Record the sampled IDs in `data/datasets/RNASim_R<NN>/ids.txt`.
-- Name directories `RNASim_R01`–`RNASim_R10`.
+- **Else**: require M3 (stop if missing). Write `scripts/sample_rnasim.py`, which samples `RNASIM_N` disjoint sets of `RNASIM_SIZE` sequences from the full reference with `RNASIM_SEED`, writes the induced sub-alignment with all-gap columns removed as `reference.fasta`, and the gap-stripped sequences as `unaligned.fasta`. Record the sampled IDs in `data/datasets/RNASim_R<k>/ids.txt`.
+- Name each directory after its archive sample, `RNASim_R<k>` (sampled branch: `RNASim_R0`–`RNASim_R9`).
 
 **Verify**
 - Exactly 10 RNASim directories, each passing the same checks as Step 5.
@@ -164,7 +164,7 @@ magus-repro/
 - Write `data/manifest.tsv` with columns: `name, condition, replicate, unaligned, reference, n_seqs, ref_length`.
 
 **Verify**
-- Exactly 70 data rows: 20 × 1000M1, 20 × 1000L1, 20 × 1000S1, 10 × RNASim.
+- Exactly 70 data rows: 20 × 1000M1, 20 × 1000L3, 20 × 1000S1, 10 × RNASim.
 - All paths exist; `n_seqs` = 1000 for every row.
 - Names are unique.
 
@@ -177,7 +177,7 @@ magus-repro/
   - Run MAGUS in the container with the pinned defaults and `THREADS_PER_JOB` threads, wrapped in `/usr/bin/time -v` and `timeout JOB_TIMEOUT_MIN`. Write `magus.aln`, `time.txt` and `magus.log`.
   - Run `validate_alignment.py`. Only on success, write `DONE` containing the commit SHA, the exact command and a timestamp.
   - On failure, leave no `DONE` and exit non-zero.
-- Pilot: run one dataset from each condition (`1000M1_R01`, `1000L1_R01`, `1000S1_R01`, `RNASim_R01`), then score them.
+- Pilot: run one dataset from each condition (`1000M1_R0`, `1000L3_R0`, `1000S1_R0`, `RNASim_R0`), then score them.
 
 **Verify**
 - All 4 pilots have `DONE`, pass validation and have parseable wall time and max RSS.

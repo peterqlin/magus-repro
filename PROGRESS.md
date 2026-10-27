@@ -64,6 +64,17 @@ Verification:
 
 **Addendum (2026-10-23 ~20:00 UTC)** — at the user's request, `vendor/MAGUS` is now a git submodule (url `https://github.com/vlasmirnov/MAGUS`, recorded at `416ec51`) instead of an untracked, gitignored clone. `scripts/build_image.sh` runs `git submodule update --init vendor/MAGUS` and refuses to build unless `vendor/MAGUS` is at `MAGUS_COMMIT` with no uncommitted changes. It labels the image `magus.commit=<sha>`. Image rebuilt (layers unchanged); label verified = `416ec513e4ef6bd5393f6ffb705cc3746a223bcd`; a deliberately wrong `MAGUS_COMMIT` makes the build exit 1.
 
+**Addendum (2026-10-25)** — **re-pinned to the newest commit, `39041fc8da5dcb44c95e90c212c667cf225ec129`** (2024-03-25, "Merge pull request #33 from lrauschning/master", HEAD of `vlasmirnov/MAGUS`), at the team's request: the project's own methods are built on this version of MAGUS. `vendor/MAGUS` submodule and `MAGUS_COMMIT` updated.
+
+- Entry point: the `magus` package (`magus.main:main`), run as `magus` in the image (see Step 2 addendum); `magus.py` no longer exists.
+- Defaults: the HEAD column of the table above. Step 1's PASTA-style starting tree is still the default: `-t fasttree` builds "PASTA-style FastTree initial tree … with skeleton size 300" (MAFFT L-INS-i on a 300-sequence skeleton, HMM-extend the rest, FastTreeMP), as the Step 3 log shows.
+- New defaults absent at the old pin: `-c/--constrain` true, `--recurse` true with `--recursethreshold 200` (only subsets larger than 200 sequences are aligned recursively; with `--maxsubsetsize 50` and 25 subsets of 1000 sequences none are).
+
+| Check | Result |
+|---|---|
+| `rev-parse HEAD` == `MAGUS_COMMIT` | PASS (`39041fc8da5dcb44c95e90c212c667cf225ec129`) |
+| `git status --porcelain` empty (in `vendor/MAGUS`) | PASS |
+
 ## Step 2 — Build the Docker image
 
 **2026-10-23 14:50** — step COMPLETE
@@ -83,6 +94,17 @@ Verification:
 | `/usr/bin/time -v true` prints max RSS | PASS |
 | `java -version` exits 0 | PASS — OpenJDK 17.0.20.1 |
 | Output files owned by host user | PASS |
+
+**Addendum (2026-10-25)** — rebuilt for the new pin. `docker/Dockerfile`: MAGUS is now a package with its tools under `magus/tools/`, so it is copied to `/opt/MAGUS` and run from there on `PYTHONPATH` (the tools stay where `magus.configuration` looks for them); `/usr/local/bin/magus` is upstream's console script (`python3 -m magus.main`). Added `libgomp1`: the bundled FastTreeMP (the default guide tree) is linked against OpenMP and does not start without it. Built and checked on a Linux x86-64 host (native, 4 cores, Docker 29.8.2), label `magus.commit=39041fc8da5dcb44c95e90c212c667cf225ec129`; rebuild locally with `scripts/build_image.sh`.
+
+| Check | Result |
+|---|---|
+| `dk.sh magus -h` exits 0, shows Step 1 flags | PASS (-t, --maxnumsubsets, --maxsubsetsize, -r, -m, --graphtracemethod, -np; also -c, --recurse) |
+| Bundled MAFFT runs | PASS — `v7.450 (2019/Aug/23)` |
+| Bundled MCL runs | PASS — `mcl 14-137` |
+| Bundled FastTreeMP runs | PASS — `FastTree Version 2.1.11 SSE3, OpenMP` |
+| `/usr/bin/time -v true` prints max RSS | PASS |
+| `java -version` exits 0 | PASS — OpenJDK 17.0.21 |
 
 ## Step 3 — Smoke test MAGUS
 
@@ -117,6 +139,25 @@ Extra check: the validator also passes on the example's `true_alignment.txt`.
 Notes:
 - GNU time's "Maximum resident set size" is the peak of the single largest process (MAFFT or Python), not the sum over concurrent MAFFT workers; `docker stats` showed ~1.8 GiB for the whole container during the backbone phase. Relevant to the `max_rss_mb` column in Step 10.
 - `-np 4` gives 4 concurrent MAFFT backbones × 4 threads each = 16 threads on the VM's 6 CPUs.
+
+**Addendum (2026-10-25)** — smoke test rerun at the new pin (same host as the Step 2 addendum). Command: `scripts/dk.sh /usr/bin/time -v -o runs/_smoke/time.txt magus -d runs/_smoke/work -i runs/_smoke/unaligned.fasta -o runs/_smoke/magus.aln -np 4`.
+
+| Phase | Time |
+|---|---|
+| Guide tree (MAFFT 300-seq skeleton + HMM extend + FastTreeMP) | 262 s |
+| Subset alignments, 10 backbones, graph, MCL | 20:26 |
+| Trace + write (1007 clusters, trace of 1036) | 3 s |
+| **Total** | **24:51 wall** (MAGUS: 1490.5 s); max RSS 451 MiB |
+
+| Check | Result |
+|---|---|
+| MAGUS exits 0, output non-empty | PASS — exit 0; `magus.aln` 3.8 MB, 1000 seqs |
+| `validate_alignment.py` passes on the smoke output | PASS |
+| Fails on a copy with one residue changed | PASS — exit 1, "1 rows don't degap to their input sequence" (SHEF) |
+| Fails on a copy with one sequence removed | PASS — exit 1, "1 IDs missing from alignment" (SHEF) |
+| Step 4: smoke alignment vs itself | PASS — SPFN 0.0, SPFP 0.0, TC 1.0 |
+
+For reference, vs the example's `true_alignment.txt`: SPFN 0.1077, SPFP 0.0962, TC 0.195 (old pin: 0.0994, 0.0945, 0.173).
 
 ## Step 4 — Set up FastSP
 
@@ -172,6 +213,17 @@ Verification:
 
 Dataset shape: reference width 1000M1 3443–4517, 1000L1 3309–4446, 1000S1 1898–2357 columns; mean unaligned length ≈ 1000–1015 nt in all three.
 
+**Addendum (2026-10-25)** — restaged with **1000L3 instead of 1000L1** (the professor's dataset list is 1000M1, 1000S1, 1000L3) and with the **archive's own replicate names**: archive `R<k>` → `<cond>_R<k>` (`R0`–`R19`), no renumbering, so a name means the same replicate here, in the archive and in the project's other results. `stage_rose.py`: `CONDITIONS = ["1000M1", "1000L3", "1000S1"]`, `name = <cond>_R<k>`. Same archive as above (`inventory.py` output identical to `data/inventory.tsv`, 244 lines). Rerun: 60 × "written", then 60 × "unchanged".
+
+| Check | Result |
+|---|---|
+| 20 staged dirs per ROSE condition (60 total) | PASS — 1000M1: 20, 1000L3: 20, 1000S1: 20 |
+| Each unaligned has exactly 1000 seqs, unique IDs | PASS (60/60) |
+| `validate_alignment.py unaligned reference` passes | PASS (60/60) |
+| No reference has all-gap columns | PASS (0 total) |
+
+1000L3 reference width: 6030–7965 columns. 1000M1 and 1000S1 are unchanged apart from the names (same `n_seqs` and `ref_length` per replicate as before).
+
 ## Step 6 — Stage the RNASim datasets
 
 **2026-10-23 20:55 UTC** — step COMPLETE (took the archive branch: ready-made 1000-sequence samples exist, so M3 and `sample_rnasim.py` aren't needed)
@@ -198,6 +250,8 @@ Dataset shape: reference width 4702–4903 columns; mean unaligned length ≈ 15
 
 Note — overlap between archive samples: the 20 archive samples share 162 IDs (19,837 distinct of 20,000); our 10 share 41 IDs (each in at most 2 samples), and every shared ID has an identical sequence in both. So the archive's samples were drawn independently from the full RNASim alignment, not as disjoint sets. This is how the original data was built; replicates overlap by ~0.4% of sequences.
 
+**Addendum (2026-10-25)** — RNASim directories now carry the archive sample's name (`RNASim_R<k>`): `RNASim_R0 R1 R5 R6 R7 R8 R9 R11 R17 R19` (same seed, same 10 samples). `data/datasets/rnasim_selection.tsv` still records the selection. Rerun: 10 × "unchanged"; 10 dirs, 1000 seqs each, unique IDs, `validate_alignment.py` passes (10/10), no all-gap columns.
+
 ## Step 7 — Build the manifest
 
 **2026-10-23 21:05 UTC** — step COMPLETE
@@ -212,6 +266,16 @@ Verification:
 | All paths exist | PASS (140/140) |
 | `n_seqs` = 1000 for every row | PASS |
 | Names unique | PASS |
+
+**Addendum (2026-10-25)** — `build_manifest.py` now lists exactly the datasets the two staging scripts produce (ROSE `<cond>_R0`–`R19` for each condition, and the RNASim names from `RNASIM_SEED`). It exits non-zero if one is missing, and any other directory in `data/datasets/` (for example `1000L1_R01`… left over from the earlier staging) is reported on stderr and left out; those can be deleted (`data/datasets/*/` is derived from `data/raw/`). Rows are ordered 1000M1, 1000L3, 1000S1, RNASim, then by replicate.
+
+| Check | Result |
+|---|---|
+| Exactly 70 data rows: 20 × 1000M1, 20 × 1000L3, 20 × 1000S1, 10 × RNASim | PASS |
+| All paths exist | PASS (140/140) |
+| `n_seqs` = 1000 for every row | PASS |
+| Names unique | PASS |
+| Rerun | "70 rows, unchanged" |
 
 ## Step 8 — Runner and pilot runs
 
@@ -258,3 +322,5 @@ Projected full batch at `PARALLEL_JOBS=1`, using the mean ROSE pilot time (1883 
 | RNASim_R01 | 0.0949 |
 
 **2026-10-24 ~00:35 UTC** — the user reviewed the pilot scores and confirmed they look reasonable; step COMPLETE
+
+**2026-10-26** — merged `origin/main` (PRs #1–#4: MAGUS pinned to `39041fc`, 1000L3 instead of 1000L1, archive replicate names, graphmods). The pilots above ran on the old setup (`416ec51`, `1000L1`, `R01`-style names), so they don't count for the current spec; Step 8 needs to be redone on the new pin and names.
