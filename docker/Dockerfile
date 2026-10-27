@@ -6,7 +6,8 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends time procps openjdk-17-jre-headless libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir dendropy==4.5.2
+# numpy, scipy: graphmods (strategies/) only; MAGUS itself needs only dendropy.
+RUN pip install --no-cache-dir dendropy==4.5.2 numpy==1.26.4 scipy==1.13.1
 
 # MAGUS is a package (tools in magus/tools/), run from /opt/MAGUS on PYTHONPATH; /usr/local/bin/magus is
 # upstream's console script (magus = "magus.main:main").
