@@ -346,3 +346,35 @@ Done:
 Container checks on an ICC compute node (Apptainer 1.5.4): `magus -h` shows the Step 1 flags; MAFFT `v7.450`; MCL `mcl 14-137`; FastTreeMP `2.1.11 SSE3, OpenMP`; `/usr/bin/time -v` prints max RSS; Java OpenJDK 17.0.21; FastSP scoring a reference against itself gives SPFN 0, SPFP 0. HOME=/tmp and files are owned by the user.
 
 Submitted: array job `11868844` (tasks 1–70), scoring job `11868845`.
+
+**2026-10-27 18:24 CDT** — batch finished on ICC; step COMPLETE. The array ran 16:45–~18:20 CDT, with at most 40 tasks running at once (the account's job limit), and the scoring job ran at 18:23–18:24. `runs/joblog.tsv` and `results/scores.csv` were copied from the ICC checkout.
+
+Verification:
+| Check | Result |
+|---|---|
+| 70 `DONE` markers | PASS (70) |
+| `runs/joblog.tsv` exit code 0 for every job | PASS (70 rows, all 0; no reruns) |
+| Every alignment passes `validate_alignment.py` (all 70 re-checked) | PASS (`score.sbatch` re-check, job `11868845` COMPLETED 0:0) |
+
+## Step 10 — Score
+
+**2026-10-27 18:24 CDT** — step COMPLETE
+
+Done: `scripts/score_all.py` (run by `scripts/icc/score.sbatch` on ICC) → `results/scores.csv`, with columns `name, condition, replicate, SPFN, SPFP, SPFN_SPFP_mean, SP_score, TC, wall_s, max_rss_mb` (the spec's columns plus `SPFN_SPFP_mean`, see Step 8).
+
+Verification:
+| Check | Result |
+|---|---|
+| 70 rows, no missing values | PASS |
+| Every SPFN/SPFP in [0, 1] | PASS |
+| Spot-check 3 random rows with `score.py` | PASS — 1000S1_R19, 1000L3_R16, 1000M1_R11: all values identical |
+
+Per-condition means (for orientation; Step 11 produces `summary.csv`):
+| Condition | n | SPFN | SPFP | TC | wall (max) | max RSS |
+|---|---|---|---|---|---|---|
+| 1000M1 | 20 | 0.1375 | 0.1231 | 0.164 | 1268 s (1887) | 2449 MiB |
+| 1000L3 | 20 | 0.1175 | 0.1026 | 0.282 | 1109 s (1384) | 1035 MiB |
+| 1000S1 | 20 | 0.1151 | 0.1063 | 0.066 | 1098 s (1310) | 531 MiB |
+| RNASim | 10 | 0.0950 | 0.0920 | 0.039 | 3767 s (4591) | 822 MiB |
+
+Runtimes are from ICC compute nodes (8 CPUs per task, `-np 4`), so they aren't comparable with the Step 8 Mac pilots.
