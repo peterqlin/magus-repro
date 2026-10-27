@@ -6,7 +6,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-source config.env
+source scripts/config.sh
 
 name="${1:?usage: run_one.sh <name>}"
 run="runs/$name"
@@ -22,9 +22,9 @@ if [ -z "$unaligned" ]; then
     exit 1
 fi
 
-image_commit="$(docker image inspect "$DOCKER_IMAGE" --format '{{index .Config.Labels "magus.commit"}}')"
+image_commit="$(image_commit)"
 if [ "$image_commit" != "$MAGUS_COMMIT" ]; then
-    echo "$name: image $DOCKER_IMAGE has magus.commit=$image_commit, expected $MAGUS_COMMIT" >&2
+    echo "$name: the $CONTAINER_RUNTIME image has magus.commit=$image_commit, expected $MAGUS_COMMIT" >&2
     exit 1
 fi
 
@@ -53,7 +53,7 @@ fi
 
 {
     echo "magus_commit=$MAGUS_COMMIT"
-    echo "image=$DOCKER_IMAGE $(docker image inspect "$DOCKER_IMAGE" --format '{{.Id}}')"
+    echo "image=$(image_desc)"
     echo "command=scripts/dk.sh ${cmd[*]}"
     echo "finished=$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 } > "$run/DONE"
