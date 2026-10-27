@@ -340,8 +340,8 @@ Done:
 - `scripts/dk.sh` runs `apptainer exec --cleanenv --home /tmp --bind <project>:/work --pwd /work magus-repro.sif …` under Apptainer. `run_one.sh` checks the image's `magus.commit` label and records the image in `DONE` for either runtime (for the SIF: path and sha256).
 - `scripts/build_sif.sh <archive>` builds the SIF from a `docker save` archive of `magus-repro:pinned` and checks its `magus.commit` label. The SIF was built from this Mac's image (`sha256:b1dafcb2842f`).
 - `scripts/icc/submit.sh` submits a 70-task array (task *i* = manifest row *i*, `scripts/icc/magus_array.sbatch`, logs in `runs/slurm/`) and a scoring job that waits for the whole array to end (`afterany`, `scripts/icc/score.sbatch`). Each task appends `seq, name, host, start, runtime_s, exitval, slurm_job` to `runs/joblog.tsv`. Resubmitting skips finished runs (`DONE`).
-- `scripts/score.sbatch` re-validates every finished alignment and runs `scripts/score_all.py`, which writes `results/scores.csv` (Step 10 columns, plus `SPFN_SPFP_mean`).
-- On ICC, the repo is at `~/magus-repro` (rsynced from this Mac at commit `icc-cluster`, without `data/raw/`; `data/datasets/` copied).
+- `scripts/icc/score.sbatch` re-validates every finished alignment and runs `scripts/score_all.py`, which writes `results/scores.csv` (Step 10 columns, plus `SPFN_SPFP_mean`).
+- On ICC, the repo is at `~/magus-repro` (rsynced from this Mac, branch `icc-cluster`, without `data/raw/`; `data/datasets/` copied).
 
 Container checks on an ICC compute node (Apptainer 1.5.4): `magus -h` shows the Step 1 flags; MAFFT `v7.450`; MCL `mcl 14-137`; FastTreeMP `2.1.11 SSE3, OpenMP`; `/usr/bin/time -v` prints max RSS; Java OpenJDK 17.0.21; FastSP scoring a reference against itself gives SPFN 0, SPFP 0. HOME=/tmp and files are owned by the user.
 
