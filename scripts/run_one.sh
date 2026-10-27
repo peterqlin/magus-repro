@@ -33,7 +33,7 @@ mkdir -p "$run/work"
 
 cmd=(/usr/bin/time -v -o "$run/time.txt"
      timeout "${JOB_TIMEOUT_MIN}m"
-     python3 /opt/MAGUS/magus.py
+     magus
      -d "$run/work" -i "$unaligned" -o "$run/magus.aln" -np "$THREADS_PER_JOB")
 
 echo "$name: started $(date -u '+%Y-%m-%dT%H:%M:%SZ')"

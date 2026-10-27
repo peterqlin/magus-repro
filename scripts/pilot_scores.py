@@ -11,7 +11,7 @@ import sys
 
 from score import ROOT, score
 
-PILOTS = ["1000M1_R01", "1000L1_R01", "1000S1_R01", "RNASim_R01"]
+PILOTS = ["1000M1_R0", "1000L3_R0", "1000S1_R0", "RNASim_R0"]
 COLUMNS = ["name", "SPFN", "SPFP", "SPFN_SPFP_mean", "SP_score", "TC", "wall_s", "max_rss_mb"]
 
 
