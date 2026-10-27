@@ -330,3 +330,51 @@ Projected full batch at `PARALLEL_JOBS=1`, using the mean ROSE pilot time (1883 
 - `scripts/run_one.sh` runs `magus` (the package's console script) instead of `python3 /opt/MAGUS/magus.py`; `scripts/pilot_scores.py` defaults to the new pilot names `1000M1_R0`, `1000L3_R0`, `1000S1_R0`, `RNASim_R0`.
 - `data/datasets/`: the 70 old directories (`*_R01`–`R20`) deleted, since old and new names collide (old `1000M1_R10` = archive R9, new = archive R10). Restaged with `stage_rose.py` (60 written) and `stage_rnasim.py` (10 written); `build_manifest.py` → "70 rows, unchanged" (byte-identical to the committed manifest). Steps 5–7 checks: 70 rows (20 × 1000M1, 20 × 1000L3, 20 × 1000S1, 10 × RNASim), 1000 seqs and unique IDs each, `validate_alignment.py` passes 70/70, no all-gap columns, names unique, each `source.txt` matches its replicate.
 - Not done, at the user's request: rerunning the pilots. Step 8 remains open. The old-setup pilot outputs (`runs/{1000M1,1000L1,1000S1,RNASim}_R01/`) and `results/pilot_scores.csv` are left as they are; they don't collide with any new name.
+
+## Step 9 — Full batch (Illinois Campus Cluster)
+
+**2026-10-27** — deviation, at the user's request: the full batch runs on the Illinois Campus Cluster (ICC) instead of this Mac. ICC has no Docker, so the same image runs under Apptainer, and Slurm replaces GNU parallel.
+
+Done:
+- `scripts/config.sh` (sourced by the shell scripts) loads `config.env`, then `config.$MAGUS_SITE.env` when `MAGUS_SITE` is set. `config.env` gained `CONTAINER_RUNTIME=docker` and `SIF_IMAGE=magus-repro.sif`. `config.icc.env` (`MAGUS_SITE=icc`) sets `CONTAINER_RUNTIME=apptainer`, account `warnow-ic`, partition `secondary` (4 h limit), 8 CPUs and 16 GB per task, and `JOB_TIMEOUT_MIN=225` so MAGUS times out before Slurm's 4 h limit kills the task. `THREADS_PER_JOB` stays 4 (`-np 4`, the same MAGUS command as the pilots).
+- `scripts/dk.sh` runs `apptainer exec --cleanenv --home /tmp --bind <project>:/work --pwd /work magus-repro.sif …` under Apptainer. `run_one.sh` checks the image's `magus.commit` label and records the image in `DONE` for either runtime (for the SIF: path and sha256).
+- `scripts/build_sif.sh <archive>` builds the SIF from a `docker save` archive of `magus-repro:pinned` and checks its `magus.commit` label. The SIF was built from this Mac's image (`sha256:b1dafcb2842f`).
+- `scripts/icc/submit.sh` submits a 70-task array (task *i* = manifest row *i*, `scripts/icc/magus_array.sbatch`, logs in `runs/slurm/`) and a scoring job that waits for the whole array to end (`afterany`, `scripts/icc/score.sbatch`). Each task appends `seq, name, host, start, runtime_s, exitval, slurm_job` to `runs/joblog.tsv`. Resubmitting skips finished runs (`DONE`).
+- `scripts/icc/score.sbatch` re-validates every finished alignment and runs `scripts/score_all.py`, which writes `results/scores.csv` (Step 10 columns, plus `SPFN_SPFP_mean`).
+- On ICC, the repo is at `~/magus-repro` (rsynced from this Mac, branch `icc-cluster`, without `data/raw/`; `data/datasets/` copied).
+
+Container checks on an ICC compute node (Apptainer 1.5.4): `magus -h` shows the Step 1 flags; MAFFT `v7.450`; MCL `mcl 14-137`; FastTreeMP `2.1.11 SSE3, OpenMP`; `/usr/bin/time -v` prints max RSS; Java OpenJDK 17.0.21; FastSP scoring a reference against itself gives SPFN 0, SPFP 0. HOME=/tmp and files are owned by the user.
+
+Submitted: array job `11868844` (tasks 1–70), scoring job `11868845`.
+
+**2026-10-27 18:24 CDT** — batch finished on ICC; step COMPLETE. The array ran 16:45–~18:20 CDT, with at most 40 tasks running at once (the account's job limit), and the scoring job ran at 18:23–18:24. `runs/joblog.tsv` and `results/scores.csv` were copied from the ICC checkout.
+
+Verification:
+| Check | Result |
+|---|---|
+| 70 `DONE` markers | PASS (70) |
+| `runs/joblog.tsv` exit code 0 for every job | PASS (70 rows, all 0; no reruns) |
+| Every alignment passes `validate_alignment.py` (all 70 re-checked) | PASS (`score.sbatch` re-check, job `11868845` COMPLETED 0:0) |
+
+## Step 10 — Score
+
+**2026-10-27 18:24 CDT** — step COMPLETE
+
+Done: `scripts/score_all.py` (run by `scripts/icc/score.sbatch` on ICC) → `results/scores.csv`, with columns `name, condition, replicate, SPFN, SPFP, SPFN_SPFP_mean, SP_score, TC, wall_s, max_rss_mb` (the spec's columns plus `SPFN_SPFP_mean`, see Step 8).
+
+Verification:
+| Check | Result |
+|---|---|
+| 70 rows, no missing values | PASS |
+| Every SPFN/SPFP in [0, 1] | PASS |
+| Spot-check 3 random rows with `score.py` | PASS — 1000S1_R19, 1000L3_R16, 1000M1_R11: all values identical |
+
+Per-condition means (for orientation; Step 11 produces `summary.csv`):
+| Condition | n | SPFN | SPFP | TC | wall (max) | max RSS |
+|---|---|---|---|---|---|---|
+| 1000M1 | 20 | 0.1375 | 0.1231 | 0.164 | 1268 s (1887) | 2449 MiB |
+| 1000L3 | 20 | 0.1175 | 0.1026 | 0.282 | 1109 s (1384) | 1035 MiB |
+| 1000S1 | 20 | 0.1151 | 0.1063 | 0.066 | 1098 s (1310) | 531 MiB |
+| RNASim | 10 | 0.0950 | 0.0920 | 0.039 | 3767 s (4591) | 822 MiB |
+
+Runtimes are from ICC compute nodes (8 CPUs per task, `-np 4`), so they aren't comparable with the Step 8 Mac pilots.
