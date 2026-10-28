@@ -378,3 +378,32 @@ Per-condition means (for orientation; Step 11 produces `summary.csv`):
 | RNASim | 10 | 0.0950 | 0.0920 | 0.039 | 3767 s (4591) | 822 MiB |
 
 Runtimes are from ICC compute nodes (8 CPUs per task, `-np 4`), so they aren't comparable with the Step 8 Mac pilots.
+
+## graphmods sweep on ICC (beyond the spec)
+
+**2026-10-27 22:42 CDT** — at the user's request, every strategy in `strategies/` was swept over its grid on all 70 datasets, merge-only on each MAGUS run's own subsets and backbones (`docs/graphmods.md`). This is 75 settings (the `magus` control plus 74) × 70 datasets = 5,250 replays.
+
+Done:
+- `scripts/icc/submit_graphmods.sh` submits one array task per dataset (`scripts/icc/graphmods_array.sbatch`, 4 CPUs, 32 GB, `graphmods.sweep --names <dataset>`), then `scripts/icc/graphmods_collect.sbatch`. `scripts/icc/joblog.sh` is the joblog helper now shared with the MAGUS array.
+- `scripts/graphmods_collect.py` → `results/graphmods_rows.jsonl` (every row) and `results/graphmods_scores.csv` (one row per dataset and setting; SPFN, SPFP, SPFN_SPFP_mean and TC as fractions, like `results/scores.csv`; plus merge time and edge counts). `graphmods.tables` → `results/graphmods.md` and `results/graphmods.csv` (paired against the control: mean Δ, W/T/L, Wilcoxon p, Holm-adjusted p, per-condition Δerr, merge time ratio).
+- Jobs: timing task `11873205` (dataset 1), array `11873348` (datasets 2–70), collect `11873349`. Task runtimes: median 37 min, max 3 h 56 min (`1000M1_R16`, the hardest dataset: stock MAGUS err 0.31). A follow-up `11877377` was queued for that task in case it hit the 4 h limit; it found nothing left to do. Joblog: `runs/graphmods_joblog.tsv`.
+
+Verification:
+| Check | Result |
+|---|---|
+| `tests/test_strategies.py` in the SIF on an ICC node | PASS |
+| Every array task exit 0 | PASS (71 joblog rows, all 0, counting the no-op follow-up) |
+| 70 × 75 = 5,250 rows, no failed runs, no missing values | PASS (collect job COMPLETED 0:0) |
+| Control replay vs the full MAGUS run (`results/scores.csv`) | 67/70 identical. 1000M1_R6 differs by 8e-5 (SPFN and SPFP), RNASim_R7 by 2e-6, 1000L3_R17 by 4e-9; TC identical in all 70. `docs/graphmods.md` notes that a replay can order columns differently from the full run. |
+
+Best setting per strategy (mean Δerr vs the control, percentage points; err = (SPFN + SPFP) / 2; control err 11.366%):
+| Setting | Δerr | W/T/L | Holm p |
+|---|---|---|---|
+| strict_k-K4 | −0.090 | 21/45/4 | 0.0017 |
+| strict_kn-F0.4 | −0.050 | 17/44/9 | 1 |
+| triadic_drop-tau0.0422 | −0.025 | 6/63/1 | 0.0007 |
+| overlap-tau0.325-factor0.5 | −0.015 | 10/55/5 | 1 |
+| triadic_reweight-L0.5 | −0.010 | 4/65/1 | 1 |
+| embeddedness-tau34-factor0.5 | −0.005 | 1/69/0 | 1 |
+| triadic_add-tau0.02-lam1 | −0.005 | 1/69/0 | 1 |
+| adaptive_mixture-kindbinom-t0.5 | +0.096 | 18/20/32 | 1 |

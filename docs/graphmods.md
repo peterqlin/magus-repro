@@ -84,6 +84,10 @@ scripts/dk.sh python3 tests/test_strategies.py                  # quick check, n
 - **Options:** `--only strict_k,overlap` or `--families network` restrict the strategies, and `--names` restricts the datasets.
 - **Scratch space:** runs live under `runs/_graphmods/`, and each run's outputs are deleted after scoring.
 - **One run:** `python3 -m graphmods.replay` does a single merge-only run with its score.
+- **On ICC:** `scripts/icc/submit_graphmods.sh` writes `runs/graphmods_reps.tsv` and submits one array task per
+  dataset (every setting, rows in `runs/_graphmods/rows/<name>.jsonl`), then a collect job. That job runs
+  `scripts/graphmods_collect.py` (→ `results/graphmods_rows.jsonl` and `results/graphmods_scores.csv`, scored like
+  `results/scores.csv`) and `graphmods.tables` (→ `results/graphmods.md`, `results/graphmods.csv`).
 
 Results of the 70-dataset sweep (on the project's own MAGUS(Fast) runs) are in `cs581/graphmods/results/` of
 evanlin23/scratch.
