@@ -68,6 +68,29 @@ A feature is computed the first time it is used and cached per dataset. The cach
 the tables charge each setting the cold cost of every feature it uses. So `merge×` is what one MAGUS run with
 that strategy would pay, relative to the control timed on the same machine.
 
+### Changing the rest of the merge, or all of it
+
+A strategy can do more than change the graph:
+
+- **Rest of the merge** (`FAMILY = "merge"`): also define `magus_args(**params)`, returning MAGUS flags. They are
+  appended after the caller's, so they win.
+  - `strategies/trace.py` sets `--graphtracemethod` and `--graphtraceoptimize`.
+  - `strategies/strict_k_optimize.py` combines the k ≥ K cutoff with the trace optimizer.
+- **Whole merge** (`FAMILY = "whole"`): define `merge(job, **params)` instead of `apply`. `graphmods.run` then calls
+  it in place of MAGUS. `job` holds the subset alignments, backbones, output path, work dir and thread count.
+  `graphmods/merge.py` has the shared pieces: MAGUS's bundled tools, a UPGMA guide tree over the subsets and a
+  progressive pairwise merge.
+  - `mafft_merge`: `mafft --merge` on the 25 fixed subset alignments.
+  - `clustalo_progressive`: Clustal Omega profile–profile merges along the guide tree.
+  - `opal_progressive`: OPAL profile–profile merges along the guide tree (PASTA's DNA merger; `$OPAL_JAR`).
+  - `hmm_merge`: UPP-like. An HMM is built from one backbone and every sequence is aligned to it.
+- **Ceilings** (`FAMILY = "ceiling"`): `g.true_pairs` and `g.true_missing()` give, from the reference alignment,
+  the true residue pairs of each edge and the true column pairs MAGUS has no edge for. `graphmods.replay` passes the
+  reference in `$GRAPHMODS_REFERENCE`. The tables list ceilings separately and leave them out of the Holm
+  correction.
+  - `oracle_edges`: MAGUS's graph with every false edge deleted.
+  - `oracle_graph`: the graph built from true homologies, i.e. a merge of these subsets with perfect evidence.
+
 ## Running a sweep
 
 The sweep reads `runs/<name>/work`, which `run_one.sh` keeps, plus the dataset's reference alignment.

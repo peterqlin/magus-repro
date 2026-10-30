@@ -252,6 +252,53 @@ class EdgeGraph:
             return a, b, t, self.poss_of(a, b)
         return self._cached("missing_tc", f)
 
+    # ------------------------------------------------------------------ truth (ceilings only)
+    def _truth(self):
+        """T[a, b] = number of residue pairs of columns a and b that the reference alignment puts in one column.
+        Needs self.subset_paths (MAGUS's subset alignments, in its node order) and self.reference, which the hook
+        sets from $GRAPHMODS_REFERENCE; only the ceiling strategies use it."""
+        from .score import read_fasta
+        if not getattr(self, "reference", None) or not getattr(self, "subset_paths", None):
+            raise SystemExit("ceiling strategies need the reference alignment ($GRAPHMODS_REFERENCE; replay sets it)")
+        refcol = {}
+        width = 0
+        for name, row in read_fasta(self.reference).items():
+            r = np.frombuffer(row.encode(), dtype=np.uint8)
+            refcol[name] = np.flatnonzero((r != ord("-")) & (r != ord(".")))
+            width = len(r)
+        rows, cols, base = [], [], 0
+        for path in self.subset_paths:
+            aln = read_fasta(path)
+            w = 0
+            for name, row in aln.items():
+                r = np.frombuffer(row.encode(), dtype=np.uint8)
+                pos = np.flatnonzero((r != ord("-")) & (r != ord(".")))
+                ref = refcol[name]
+                assert len(pos) == len(ref), "sequence {} differs between subset and reference".format(name)
+                rows.append(base + pos)
+                cols.append(ref)
+                w = len(r)
+            base += w
+        assert base == self.N, "subset alignments ({} columns) do not match the graph ({} nodes)".format(base, self.N)
+        rows, cols = np.concatenate(rows), np.concatenate(cols)
+        X = sp.csr_matrix((np.ones(len(rows), dtype=np.int64), (rows, cols)), shape=(self.N, width))
+        return (X @ X.T).tocsr()
+
+    @property
+    def true_pairs(self):
+        """Per existing cross-subset edge: residue pairs the reference aligns (0 = a false edge)."""
+        return self._cached("true_pairs", lambda: pair_lookup(self._truth(), self.a, self.b))
+
+    def true_missing(self):
+        """Cross-subset column pairs with true residue pairs but no MAGUS edge: a, b, true pair count."""
+        def f():
+            T = sp.triu(self._truth(), k=1).tocoo()
+            cross = self.sub[T.row] != self.sub[T.col]
+            a, b, t = T.row[cross].astype(np.int64), T.col[cross].astype(np.int64), T.data[cross].astype(np.float64)
+            have = pair_lookup(self.adjacency(), a, b) > 0
+            return a[~have], b[~have], t[~have]
+        return self._cached("true_missing", f)
+
     def posterior(self, kind):
         """P(true | k, n) under a two-component zero-truncated mixture fitted to this dataset's (k, n) table."""
         from . import mixture

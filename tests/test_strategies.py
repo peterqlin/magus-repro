@@ -49,6 +49,8 @@ def test_every_strategy_runs():
     g, total = random_graph()
     assert len(g.w) > 0
     for m in registry.all_strategies():
+        if not hasattr(m, "apply") or m.FAMILY == "ceiling":  # whole merges and ceilings need real inputs
+            continue
         for params in m.GRID:
             w, added = run_strategy(g, m, dict(params))
             assert w.shape == g.w.shape, (m.NAME, params)

@@ -18,10 +18,12 @@ fi
 start="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 SECONDS=0
 echo "$name: started $start"
+rows="runs/_graphmods/rows${GRAPHMODS_TAG:+_$GRAPHMODS_TAG}"  # GRAPHMODS_TAG / GRAPHMODS_ONLY: see submit_graphmods.sh
+mkdir -p "$rows"
 scripts/dk.sh python3 -m graphmods.sweep --reps runs/graphmods_reps.tsv --names "$name" \
-    --out "runs/_graphmods/rows/$name.jsonl" --threads "$SLURM_CPUS_PER_TASK"
+    --out "$rows/$name.jsonl" --threads "$SLURM_CPUS_PER_TASK" ${GRAPHMODS_ONLY:+--only "$GRAPHMODS_ONLY"}
 status=$?
 echo "$name: exit $status after $SECONDS s"
 
-scripts/icc/joblog.sh runs/graphmods_joblog.tsv "$name" "$start" "$SECONDS" "$status"
+scripts/icc/joblog.sh "runs/graphmods${GRAPHMODS_TAG:+_$GRAPHMODS_TAG}_joblog.tsv" "$name" "$start" "$SECONDS" "$status"
 exit "$status"
