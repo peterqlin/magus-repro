@@ -85,11 +85,21 @@ A strategy can do more than change the graph:
   - `opal_progressive`: OPAL profile–profile merges along the guide tree (PASTA's DNA merger; `$OPAL_JAR`).
   - `hmm_merge`: UPP-like. An HMM is built from one backbone and every sequence is aligned to it.
 - **Ceilings** (`FAMILY = "ceiling"`): `g.true_pairs` and `g.true_missing()` give, from the reference alignment,
-  the true residue pairs of each edge and the true column pairs MAGUS has no edge for. `graphmods.replay` passes the
+  the true residue pairs of each edge and the true column pairs MAGUS has no edge for. `g.true_w` counts, per edge,
+  the residue pairs the backbones aligned across it (the pairs `w` counts) that the reference also aligns
+  (`graphmods/oracle.py`; it checks that its backbone mapping reproduces MAGUS's `w`). `graphmods.replay` passes the
   reference in `$GRAPHMODS_REFERENCE`. The tables list ceilings separately and leave them out of the Holm
   correction.
-  - `oracle_edges`: MAGUS's graph with every false edge deleted.
+  - `oracle_edges`: MAGUS's graph with every false edge deleted. By default an edge is false when no residue pair of
+    its two columns is aligned in the reference. With `f`, it is false unless more than a fraction `f` of its
+    backbone-aligned pairs are (`f = 0.5`: the majority rule), which is the best any filter of the backbone evidence
+    could do.
   - `oracle_graph`: the graph built from true homologies, i.e. a merge of these subsets with perfect evidence.
+    `add=0` only reweights MAGUS's edges; `norm=none` keeps raw counts instead of MAGUS's total weight.
+- **Errors inside the subsets:** `scripts/subset_errors.py` scores each subset alignment with FastSP against the
+  reference restricted to its sequences, and splits MAGUS's final errors into within-subset pairs (which no graph
+  change can fix, since the merge keeps each subset's columns) and cross-subset pairs. On ICC:
+  `scripts/icc/submit_subset_errors.sh` → `results/ceiling_subsets/`, `results/ceiling_subset_errors.csv`.
 
 ## Running a sweep
 

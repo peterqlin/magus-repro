@@ -1,0 +1,19 @@
+{
+ "ref_pairs": 497616794,
+ "est_pairs": 496007911,
+ "shared": 460477779,
+ "ref_within": 20406946,
+ "est_within": 20401274,
+ "shared_within": 19666026,
+ "name": "1000S1_R0",
+ "subsets": 25,
+ "SPFN": 0.07463376527440913,
+ "SPFP": 0.0716321881406444,
+ "SPFN_within": 0.0014889368866437414,
+ "SPFP_within": 0.0014823311961248134,
+ "FN_within_share": 0.019949909818556037,
+ "FP_within_share": 0.020693646733426153,
+ "subset_SPFN_mean": 0.04068583454376789,
+ "subset_SPFP_mean": 0.040219851356008904,
+ "condition": "1000S1"
+}

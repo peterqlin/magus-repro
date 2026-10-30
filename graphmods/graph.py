@@ -289,6 +289,16 @@ class EdgeGraph:
         """Per existing cross-subset edge: residue pairs the reference aligns (0 = a false edge)."""
         return self._cached("true_pairs", lambda: pair_lookup(self._truth(), self.a, self.b))
 
+    @property
+    def true_w(self):
+        """Per existing cross-subset edge: of the residue pairs the backbones aligned across it (the pairs w counts),
+        those the reference also aligns. Needs self.context and self.backbone_files, which the hook sets."""
+        from .oracle import backbone_true_pairs
+        if not getattr(self, "reference", None) or getattr(self, "context", None) is None:
+            raise SystemExit("ceiling strategies need the reference alignment ($GRAPHMODS_REFERENCE; replay sets it)")
+        return self._cached("true_w", lambda: backbone_true_pairs(self.context, self.backbone_files,
+                                                                  self.reference, self))
+
     def true_missing(self):
         """Cross-subset column pairs with true residue pairs but no MAGUS edge: a, b, true pair count."""
         def f():

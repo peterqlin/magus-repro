@@ -407,3 +407,34 @@ Best setting per strategy (mean Δerr vs the control, percentage points; err = (
 | embeddedness-tau34-factor0.5 | −0.005 | 1/69/0 | 1 |
 | triadic_add-tau0.02-lam1 | −0.005 | 1/69/0 | 1 |
 | adaptive_mixture-kindbinom-t0.5 | +0.096 | 18/20/32 | 1 |
+
+## Graph-step ceilings on ICC (beyond the spec)
+
+**2026-10-30** — at the user's request: how much any change to the alignment graph could gain, using the reference (`docs/graphmods.md`, Ceilings). This is 8 settings (the control, 4 × `oracle_edges`, 3 × `oracle_graph`) on all 70 datasets, merge-only, plus a breakdown of the errors already inside the subset alignments.
+
+Done:
+- `oracle_edges` (perfect delete): default rule = PR #8's (an edge is false if no residue pair of its two columns is aligned in the reference); `f` = the fraction rule on the backbone-aligned pairs (`g.true_w`, `graphmods/oracle.py`), `f = 0.5` the majority rule. `oracle_graph` (perfect graph): PR #8's definition, plus `add=0` (reweight only) and `norm=none` (raw counts).
+- `scripts/subset_errors.py` → `results/ceiling_subsets/<name>.{csv,json}` and `results/ceiling_subset_errors.csv`.
+- Jobs: `GRAPHMODS_TAG=ceiling GRAPHMODS_ONLY=oracle_edges,oracle_graph scripts/icc/submit_graphmods.sh` (array `11932492`, collect `11932493`) → `results/graphmods_ceiling.{md,csv}`, `_rows.jsonl`, `_scores.csv`; `scripts/icc/submit_subset_errors.sh` (array `11932494`, summary `11932495`). The collect job failed in `graphmods.tables`: its sort compared `oracle_graph`'s `add=0` with `norm=none`. Fixed (params sorted by name, numbers before strings), collect rerun; the full-sweep table's row order is unchanged.
+- A first run on branch `worktree-graphmods-ceiling` (before PR #8's ceilings were merged in) gave identical numbers for every shared setting, and a byte-identical subset breakdown.
+
+Verification:
+| Check | Result |
+|---|---|
+| `tests/test_strategies.py` on ICC | PASS |
+| Every task exit 0 | PASS (sweep 70/70, subset errors 70/70) |
+| 70 × 8 = 560 rows, no failed runs | PASS |
+| `true_w`'s backbone mapping reproduces MAGUS's edge weights | PASS (checked on every dataset; a mismatch stops the run) |
+| Control replay vs `results/scores.csv` | max \|Δ\| 8e-5 (same 3 datasets as the full sweep) |
+| Subset breakdown: count-based SPFN/SPFP = `scores.csv`; within-subset counts of `magus.aln` = those of the subset files | PASS (70/70) |
+
+Results (err = (SPFN + SPFP) / 2; MAGUS 11.366%):
+| Ceiling | err | Δerr | edges kept |
+|---|---|---|---|
+| `oracle_edges` (no true pair → false) | 8.656 | −2.710 | 22.5% |
+| `oracle_edges-f0.5` (majority of backbone pairs) | 7.932 | −3.434 | 17.6% |
+| `oracle_graph` | 6.917 | −4.449 | 22.5% + 103k added |
+| `oracle_graph-add0` | 6.947 | −4.419 | 22.5% |
+| Errors within subsets (no graph can fix) | 0.243 | | |
+
+All ceilings beat MAGUS on 70/70 datasets. The best real strategy (`strict_k-K4`, −0.090) reaches under 3% of the majority-rule delete ceiling.

@@ -19,7 +19,7 @@ source scripts/config.sh
 python3 scripts/graphmods_reps.py
 rows=$(( $(wc -l < data/manifest.tsv) - 1 ))
 mkdir -p runs/slurm "runs/_graphmods/rows${GRAPHMODS_TAG:+_$GRAPHMODS_TAG}"
-common=(--parsable --account "$SLURM_ACCOUNT" --partition "$SLURM_PARTITION")
+source scripts/icc/slurm_common.sh
 
 array_job="$(sbatch "${common[@]}" \
     --time "$SLURM_TIME" --cpus-per-task "$GRAPHMODS_CPUS_PER_JOB" --mem "$GRAPHMODS_MEM" \
