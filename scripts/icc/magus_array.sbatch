@@ -18,11 +18,5 @@ SECONDS=0
 scripts/run_one.sh "$name"
 status=$?
 
-joblog=runs/joblog.tsv
-(
-    flock 9
-    [ -s "$joblog" ] || printf 'seq\tname\thost\tstart\truntime_s\texitval\tslurm_job\n' > "$joblog"
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$SLURM_ARRAY_TASK_ID" "$name" "$(hostname -s)" "$start" \
-        "$SECONDS" "$status" "${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}" >> "$joblog"
-) 9> runs/.joblog.lock
+scripts/icc/joblog.sh runs/joblog.tsv "$name" "$start" "$SECONDS" "$status"
 exit "$status"
