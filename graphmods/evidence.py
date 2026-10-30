@@ -6,7 +6,8 @@ OPAL keeps each input alignment's columns, so every output column holds at most 
 holding column x of subset s and column y of subset t aligns count_s[x] * count_t[y] letter pairs (count = residues
 in the column): letter pairs, as MAGUS's weight counts them, but over every sequence rather than a backbone's.
 opal_pair_weights returns that count for every existing cross-subset edge (0 if OPAL does not put the two columns
-together), and the column pairs OPAL aligns that MAGUS has no edge for (a, b, count). Runs S * (S - 1) / 2 OPAL jobs for S subsets, in parallel threads (MAGUS's -np). OPAL jar: $OPAL_JAR (the image sets it); heap per job: $OPAL_XMX (default 2g).
+together), and the column pairs OPAL aligns that MAGUS has no edge for (a, b, count). Runs S * (S - 1) / 2 OPAL jobs for S subsets, in parallel threads (MAGUS's -np). OPAL jar: $OPAL_JAR (the image sets it); heap per job: $OPAL_XMX (default 4g; a
+job that fails is retried once with twice the heap).
 """
 import concurrent.futures
 import os
@@ -66,7 +67,7 @@ def opal_pair_weights(g):
     if not getattr(g, "subset_paths", None):
         raise SystemExit("opal_pairs needs the subset alignments (the hook sets them)")
     jar = os.environ.get("OPAL_JAR", "/opt/opal/opal.jar")
-    xmx = os.environ.get("OPAL_XMX", "2g")
+    xmx = os.environ.get("OPAL_XMX", "4g")
     subs = [{k: v.upper() for k, v in read_fasta(p).items()} for p in g.subset_paths]
     width = [len(next(iter(s.values()))) for s in subs]
     base = np.r_[0, np.cumsum(width)[:-1]]
@@ -81,9 +82,14 @@ def opal_pair_weights(g):
     def one(st):
         s, t = st
         out = os.path.join(tmp, "{}_{}.fasta".format(s, t))
-        with open(os.devnull, "w") as dn:
-            subprocess.run(["java", "-Xmx" + xmx, "-jar", jar, "--in", g.subset_paths[s], "--in2", g.subset_paths[t],
-                            "--out", out, "--align_method", "profile", "--quiet"], stdout=dn, stderr=dn, check=True)
+        for heap in (xmx, str(2 * int(xmx[:-1])) + xmx[-1]):
+            with open(os.devnull, "w") as dn:
+                r = subprocess.run(["java", "-Xmx" + heap, "-jar", jar, "--in", g.subset_paths[s], "--in2",
+                                    g.subset_paths[t], "--out", out, "--align_method", "profile", "--quiet"],
+                                   stdout=dn, stderr=dn)
+            if r.returncode == 0:
+                break
+        r.check_returncode()
         aln = {k: v.upper() for k, v in read_fasta(out).items()}
         os.remove(out)
         w_out = len(next(iter(aln.values())))
