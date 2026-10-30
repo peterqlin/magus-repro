@@ -17,7 +17,7 @@ fi
 
 rows=$(( $(wc -l < data/manifest.tsv) - 1 ))
 mkdir -p runs/slurm
-common=(--parsable --account "$SLURM_ACCOUNT" --partition "$SLURM_PARTITION")
+source scripts/icc/slurm_common.sh
 
 array_job="$(sbatch "${common[@]}" \
     --time "$SLURM_TIME" --cpus-per-task "$SLURM_CPUS_PER_JOB" --mem "$SLURM_MEM" \
