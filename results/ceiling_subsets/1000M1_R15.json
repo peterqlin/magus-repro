@@ -1,0 +1,19 @@
+{
+ "ref_pairs": 495581675,
+ "est_pairs": 490374662,
+ "shared": 437525881,
+ "ref_within": 20672981,
+ "est_within": 20674240,
+ "shared_within": 19799378,
+ "name": "1000M1_R15",
+ "subsets": 25,
+ "SPFN": 0.11714677303191245,
+ "SPFP": 0.10777225067962423,
+ "SPFN_within": 0.0017627830972563705,
+ "SPFP_within": 0.0017840685251392537,
+ "FN_within_share": 0.015047645373690006,
+ "FP_within_share": 0.016554062051119024,
+ "subset_SPFN_mean": 0.045330873084777776,
+ "subset_SPFP_mean": 0.045255337295246924,
+ "condition": "1000M1"
+}

@@ -1,0 +1,19 @@
+{
+ "ref_pairs": 499780171,
+ "est_pairs": 479738726,
+ "shared": 417974827,
+ "ref_within": 21202240,
+ "est_within": 21242154,
+ "shared_within": 19646893,
+ "name": "1000L3_R15",
+ "subsets": 25,
+ "SPFN": 0.16368265238758342,
+ "SPFP": 0.1287448680972234,
+ "SPFN_within": 0.00311206224306166,
+ "SPFP_within": 0.0033252704306385304,
+ "FN_within_share": 0.01901277989858462,
+ "FP_within_share": 0.025828372655035913,
+ "subset_SPFN_mean": 0.06879860141179839,
+ "subset_SPFP_mean": 0.0698338756937456,
+ "condition": "1000L3"
+}
