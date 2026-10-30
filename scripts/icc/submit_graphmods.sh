@@ -5,6 +5,11 @@
 #
 # The sweep skips (dataset, setting) pairs already in its rows file, so resubmitting continues where a task
 # stopped. Account and partition come from config.icc.env; logs go to runs/slurm/.
+#
+# A separate run of some strategies: GRAPHMODS_ONLY=trace,opal_progressive GRAPHMODS_TAG=merge submit_graphmods.sh
+# runs only those strategies (and the MAGUS control, timed on the same node) into runs/_graphmods/rows_merge/ and
+# collects them into results/graphmods_merge.md, _rows.jsonl, _scores.csv, .csv. Unset, both default to the full
+# sweep above.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
@@ -13,7 +18,7 @@ source scripts/config.sh
 
 python3 scripts/graphmods_reps.py
 rows=$(( $(wc -l < data/manifest.tsv) - 1 ))
-mkdir -p runs/slurm runs/_graphmods/rows
+mkdir -p runs/slurm "runs/_graphmods/rows${GRAPHMODS_TAG:+_$GRAPHMODS_TAG}"
 common=(--parsable --account "$SLURM_ACCOUNT" --partition "$SLURM_PARTITION")
 
 array_job="$(sbatch "${common[@]}" \
@@ -26,4 +31,4 @@ collect_job="$(sbatch "${common[@]}" \
     --dependency "afterany:$array_job" --output 'runs/slurm/graphmods_collect_%j.out' \
     scripts/icc/graphmods_collect.sbatch | cut -d';' -f1)"
 
-echo "sweep array job $array_job (${1:-1-$rows}), collect job $collect_job"
+echo "sweep array job $array_job (${1:-1-$rows}), collect job $collect_job${GRAPHMODS_TAG:+ (tag $GRAPHMODS_TAG: ${GRAPHMODS_ONLY:-all strategies})}"

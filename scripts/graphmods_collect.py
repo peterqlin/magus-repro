@@ -2,7 +2,8 @@
 # AI-assisted (Claude), exploration code for CS581 project
 """Collect the per-dataset graphmods sweep rows (runs/_graphmods/rows/<name>.jsonl) into results/.
 
-Usage: graphmods_collect.py
+Usage: graphmods_collect.py      ($GRAPHMODS_TAG, $GRAPHMODS_ONLY: a tagged run of some strategies, as
+                                  scripts/icc/submit_graphmods.sh documents)
 
 Writes results/graphmods_rows.jsonl (every row, manifest order, then sweep order) and
 results/graphmods_scores.csv (one row per dataset and setting, scored like results/scores.csv: SPFN, SPFP,
@@ -21,7 +22,10 @@ sys.path.insert(0, ROOT)
 from graphmods import registry  # noqa: E402
 from graphmods.sweep import plan  # noqa: E402
 
-ROWS_DIR = os.path.join(ROOT, "runs", "_graphmods", "rows")
+TAG = os.environ.get("GRAPHMODS_TAG") or ""
+ONLY = [s for s in (os.environ.get("GRAPHMODS_ONLY") or "").split(",") if s]
+SUFFIX = "_" + TAG if TAG else ""
+ROWS_DIR = os.path.join(ROOT, "runs", "_graphmods", "rows" + SUFFIX)
 COLUMNS = ["name", "condition", "replicate", "variant", "strategy", "family", "params", "SPFN", "SPFP",
            "SPFN_SPFP_mean", "TC", "merge_s", "edges", "kept_edges", "added_edges"]
 
@@ -38,7 +42,8 @@ def read_rows(path):
 
 
 def main():
-    variants = [registry.variant_name(m.NAME, p) for m, p in plan(registry.all_strategies())]
+    mods = [m for m in registry.all_strategies() if not ONLY or m.NAME in ONLY or m.NAME == "magus"]
+    variants = [registry.variant_name(m.NAME, p) for m, p in plan(mods)]
     manifest = list(csv.DictReader(open(os.path.join(ROOT, "data", "manifest.tsv")), delimiter="\t"))
 
     rows, scored, problems = [], [], []
@@ -62,14 +67,14 @@ def main():
                            r.get("edges", ""), r.get("kept_edges", ""), r.get("added_edges", "")])
 
     results = os.path.join(ROOT, "results")
-    with open(os.path.join(results, "graphmods_rows.jsonl"), "w") as f:
+    with open(os.path.join(results, "graphmods{}_rows.jsonl".format(SUFFIX)), "w") as f:
         f.writelines(json.dumps(r, default=str) + "\n" for r in rows)
-    with open(os.path.join(results, "graphmods_scores.csv"), "w", newline="") as f:
+    with open(os.path.join(results, "graphmods{}_scores.csv".format(SUFFIX)), "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(COLUMNS)
         writer.writerows(scored)
-    print("wrote results/graphmods_rows.jsonl ({} rows) and results/graphmods_scores.csv ({} scored; "
-          "{} datasets x {} settings expected)".format(len(rows), len(scored), len(manifest), len(variants)))
+    print("wrote results/graphmods{0}_rows.jsonl ({1} rows) and results/graphmods{0}_scores.csv ({2} scored; "
+          "{3} datasets x {4} settings expected)".format(SUFFIX, len(rows), len(scored), len(manifest), len(variants)))
 
     if problems:
         sys.exit("\n".join(problems))

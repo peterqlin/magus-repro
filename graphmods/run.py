@@ -27,6 +27,10 @@ def main(argv=None):
     ap.add_argument("--info", help="write strategy info (edges kept / added, timings) to this JSON file")
     a = ap.parse_args(argv[:i])
     params = registry.parse_params(a.param)
+    if hasattr(registry.load(a.strategy, a.strategies), "merge"):  # a whole-merge strategy runs instead of MAGUS
+        from .merge import run_strategy
+        run_strategy(registry.load(a.strategy, a.strategies), params, argv[i + 1:], a.info)
+        return
     strategy = hook.install(a.strategy, params, a.strategies, a.cache, a.info)
     extra = [str(x) for x in strategy.magus_args(**params)] if hasattr(strategy, "magus_args") else []
     from magus.main import main as magus_main

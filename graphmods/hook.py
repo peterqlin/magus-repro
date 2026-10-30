@@ -157,6 +157,8 @@ def install(name, params=None, strategies=None, cache_dir=None, info_path=None):
             raise SystemExit("graphmods: --graphbuildrestrict is not supported")
         t0 = time.time()
         g, files = build_edge_graph(context, cache_dir)
+        g.subset_paths = list(context.subalignmentPaths)  # node order; for the ceiling strategies' truth lookup
+        g.reference = os.environ.get("GRAPHMODS_REFERENCE")
         t1 = time.time()
         new_w, added = run_strategy(g, strategy, params)
         M, info = g.to_csr(new_w, added)

@@ -19,5 +19,12 @@ RUN rm -rf /opt/MAGUS/.git \
     && chmod a+x /usr/local/bin/magus
 ENV PYTHONPATH=/opt/MAGUS
 
+# OPAL (strategies/opal_progressive.py only), from smirarab/sate-tools-linux at a fixed commit.
+ADD --checksum=sha256:542390231d98879f415fe1f93052744075030103e634e757aed9c7f3e13d58d3 \
+    https://raw.githubusercontent.com/smirarab/sate-tools-linux/90fb074d61af554e94d1a67583dd3a80b11417ea/opal.jar \
+    /opt/opal/opal.jar
+RUN chmod a+r /opt/opal/opal.jar
+ENV OPAL_JAR=/opt/opal/opal.jar
+
 ENV HOME=/tmp
 WORKDIR /work

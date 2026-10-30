@@ -15,7 +15,7 @@ import csv
 import json
 import statistics as st
 
-FAMILY_ORDER = ["strict", "adaptive", "network"]
+FAMILY_ORDER = ["strict", "adaptive", "network", "merge", "whole", "ceiling"]
 
 
 def load(paths):
@@ -96,8 +96,8 @@ def summarize(rows):
 
 
 def holm(out):
-    """Holm step-down adjustment of the Wilcoxon p-values across all variants in the table (p_holm)."""
-    ps = sorted((r["p"], i) for i, r in enumerate(out) if r.get("p") is not None)
+    """Holm step-down adjustment of the Wilcoxon p-values across all variants in the table but the ceilings."""
+    ps = sorted((r["p"], i) for i, r in enumerate(out) if r.get("p") is not None and r.get("family") != "ceiling")
     run = 0.0
     for rank, (p, i) in enumerate(ps):
         run = max(run, min(1.0, (len(ps) - rank) * p))

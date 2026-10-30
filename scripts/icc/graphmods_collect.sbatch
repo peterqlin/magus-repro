@@ -8,8 +8,8 @@
 set -uo pipefail
 cd "$SLURM_SUBMIT_DIR"
 
-scripts/dk.sh python3 scripts/graphmods_collect.py
+scripts/dk.sh env GRAPHMODS_TAG="${GRAPHMODS_TAG:-}" GRAPHMODS_ONLY="${GRAPHMODS_ONLY:-}" python3 scripts/graphmods_collect.py
 status=$?
-scripts/dk.sh python3 -m graphmods.tables results/graphmods_rows.jsonl \
-    --md results/graphmods.md --csv results/graphmods.csv || status=1
+out="results/graphmods${GRAPHMODS_TAG:+_$GRAPHMODS_TAG}"
+scripts/dk.sh python3 -m graphmods.tables "${out}_rows.jsonl" --md "$out.md" --csv "$out.csv" || status=1
 exit "$status"

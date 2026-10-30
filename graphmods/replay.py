@@ -55,7 +55,8 @@ def replay(subsets, backbones, reference, out_dir, strategy="magus", params=None
     t0 = time.time()
     with open(os.path.join(out_dir, "magus.log"), "w") as log:
         subprocess.run(cmd, cwd=PKG_ROOT, stdout=log, stderr=subprocess.STDOUT, check=True,
-                       env=dict(os.environ, PYTHONPATH=PKG_ROOT + os.pathsep + os.environ.get("PYTHONPATH", "")))
+                       env=dict(os.environ, PYTHONPATH=PKG_ROOT + os.pathsep + os.environ.get("PYTHONPATH", ""),
+                                GRAPHMODS_REFERENCE=os.path.abspath(reference)))  # read only by ceiling strategies
     wall = round(time.time() - t0, 1)
     if not keep_work:
         shutil.rmtree(os.path.join(out_dir, "work"), ignore_errors=True)
