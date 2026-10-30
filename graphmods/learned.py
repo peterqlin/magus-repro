@@ -7,7 +7,8 @@ edge's weight that is true (true_w / w, from the reference; graphmods/oracle.py)
     strategies/learned_weights.py      applies the model trained on the other parity, so no dataset is scored by a
                                        model that saw it
 
-Features are symmetric in the edge's two columns (min / max of per-column values).
+Features are symmetric in the edge's two columns (min / max of per-column values). Two feature sets: "base" (the
+backbones and the graph) and "opal" (base plus OPAL's verdict on the edge, graphmods/evidence.py).
 """
 import json
 import os
@@ -20,9 +21,11 @@ DUMP_DIR = os.environ.get("GRAPHMODS_DUMP_DIR") or os.path.join(PKG_ROOT, "runs"
 MODEL = os.environ.get("GRAPHMODS_MODEL") or os.path.join(PKG_ROOT, "results", "graphmods_edge_model.json")
 FEATURES = ["log_w", "k_frac", "n_frac", "k_over_n", "s", "ovl", "log_emb", "log_chain_offset", "diag_support",
             "occ_min", "occ_max", "backbone_em", "best_min", "best_max", "log_deg_min", "log_deg_max"]
+OPAL_FEATURES = ["opal_on", "log_opal"]
+SETS = {"base": FEATURES, "opal": FEATURES + OPAL_FEATURES}
 
 
-def features(g):
+def features(g, opal=False):
     occ, (ra, rb), deg = g.occupancy, g.best_ratio, g.deg
     oa, ob, da, db = occ[g.a], occ[g.b], deg[g.a], deg[g.b]
     cols = {
@@ -32,7 +35,9 @@ def features(g):
         "backbone_em": g.backbone_em, "best_min": np.minimum(ra, rb), "best_max": np.maximum(ra, rb),
         "log_deg_min": np.log1p(np.minimum(da, db)), "log_deg_max": np.log1p(np.maximum(da, db)),
     }
-    return np.column_stack([cols[f] for f in FEATURES]).astype(np.float64)
+    if opal:
+        cols.update(opal_on=(g.opal_pairs > 0).astype(float), log_opal=np.log1p(g.opal_pairs))
+    return np.column_stack([cols[f] for f in SETS["opal" if opal else "base"]]).astype(np.float64)
 
 
 def replicate(name):
@@ -67,14 +72,14 @@ def fit(X, y, wt, l2=1e-3):
         grad[1:] += 2 * l2 * c[1:]
         return ll + reg, grad
     c = minimize(loss, np.zeros(D.shape[1]), jac=True, method="L-BFGS-B", options={"maxiter": 2000}).x
-    return {"features": FEATURES, "mean": mean.tolist(), "std": std.tolist(), "coef": c.tolist(), "l2": l2}
+    return {"mean": mean.tolist(), "std": std.tolist(), "coef": c.tolist(), "l2": l2}
 
 
-def load_model(name):
-    """The model trained on the replicates of the other parity than dataset `name`."""
+def load_model(name, features="base"):
+    """The model for feature set `features` trained on the replicates of the other parity than dataset `name`."""
     if not os.path.exists(MODEL):
         raise SystemExit("no edge model at {} (scripts/graphmods_train.py writes it)".format(MODEL))
-    models = json.load(open(MODEL))
+    models = json.load(open(MODEL))[features]
     r = replicate(name)
     if r is None:
         raise SystemExit("learned weights need the dataset name ($GRAPHMODS_NAME, <condition>_R<replicate>)")

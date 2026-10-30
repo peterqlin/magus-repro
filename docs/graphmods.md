@@ -70,6 +70,7 @@ available on `g` are:
 | `best_ratio` | `(ra, rb)`: `w` over the heaviest edge from `a` into `b`'s subset, and from `b` into `a`'s |
 | `occupancy` | per node: fraction of its subset's sequences with a residue in the column |
 | `opal_pairs` | letter pairs that OPAL's alignment of the edge's two subset alignments puts in one column |
+| `opal_missing()` | `(a, b, pairs)` for the column pairs OPAL aligns that have no edge |
 
 `occupancy` and `opal_pairs` read the subset alignments (the hook sets `g.subset_paths`; `opal_pairs` runs OPAL on
 every pair of subsets, `graphmods/evidence.py`). Strategies that use them set `NEEDS_INPUTS = True`, so
@@ -145,19 +146,19 @@ A strategy can do more than change the graph:
 | `gappy_discount` | structure | weight × (smaller column occupancy)^γ, or delete edges between columns below occupancy θ |
 | `reciprocal` | network | keep an edge when it is close to the heaviest edge of its endpoints into each other's subset |
 | `backbone_em` | adaptive | weight × (or cut at) the Dawid–Skene posterior |
-| `opal_evidence` | evidence | add OPAL's pair counts to `w`, keep only edges OPAL supports, or use OPAL's counts alone |
+| `opal_evidence` | evidence | add OPAL's pair counts to `w`, keep only edges OPAL supports, or use OPAL's counts alone; `missing=1` also adds the column pairs OPAL aligns that MAGUS has no edge for |
 | `learned_weights` | learned | weight × (or cut at) a fitted probability that the edge's pairs are true (below) |
 
 ### Learned weights
 
 `learned_weights` applies a fractional logistic regression from the edge features of `graphmods/learned.py` to the
-fraction of an edge's weight that is true (`true_w / w`). It is trained in three steps, since the labels need
-the reference:
+fraction of an edge's weight that is true (`true_w / w`). `features=opal` adds OPAL's verdict on the edge to the
+inputs. It is trained in three steps, since the labels need the reference:
 
 1. `dump_edge_features` (a ceiling; it leaves the graph unchanged) writes up to 300,000 random edges per dataset,
-   with features and labels, to `runs/_graphmods/edge_features/<name>.npz`.
-2. `python3 scripts/graphmods_train.py` fits two models, one on the even replicates and one on the odd, and writes
-   `results/graphmods_edge_model.json`. It prints each model's held-out log loss.
+   with features (both sets, so it runs OPAL) and labels, to `runs/_graphmods/edge_features/<name>.npz`.
+2. `python3 scripts/graphmods_train.py` fits, per feature set, one model on the even replicates and one on the odd,
+   and writes `results/graphmods_edge_model.json`. It prints each model's held-out log loss.
 3. `learned_weights` scores a dataset with the model fitted on the other parity, so no dataset is scored by a model
    that saw it. The sweep passes the dataset name (`<condition>_R<replicate>`) as `$GRAPHMODS_NAME`.
 

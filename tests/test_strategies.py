@@ -120,6 +120,7 @@ def test_learned_fit():
     X = rng.normal(size=(5000, len(learned.FEATURES)))
     p = 1 / (1 + np.exp(-(2 * X[:, 0] - X[:, 3] - 1)))
     model = learned.fit(X, rng.binomial(10, p) / 10, rng.integers(1, 50, len(p)).astype(float))
+    assert len(model["coef"]) == 1 + 2 * len(learned.FEATURES)
     assert np.abs(learned.predict(model, X) - p).mean() < 0.03
 
 

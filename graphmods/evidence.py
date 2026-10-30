@@ -4,9 +4,9 @@ alignments (PASTA's merger for DNA/RNA).
 
 OPAL keeps each input alignment's columns, so every output column holds at most one column of each subset; a column
 holding column x of subset s and column y of subset t aligns count_s[x] * count_t[y] letter pairs (count = residues
-in the column), the same unit as MAGUS's backbone weight. opal_pair_weights returns that count for every existing
-cross-subset edge (0 if OPAL does not put the two columns together). Runs ceil(S * (S - 1) / 2) OPAL jobs, in
-parallel threads (MAGUS's -np). OPAL jar: $OPAL_JAR (the image sets it); heap per job: $OPAL_XMX (default 2g).
+in the column): letter pairs, as MAGUS's weight counts them, but over every sequence rather than a backbone's.
+opal_pair_weights returns that count for every existing cross-subset edge (0 if OPAL does not put the two columns
+together), and the column pairs OPAL aligns that MAGUS has no edge for (a, b, count). Runs S * (S - 1) / 2 OPAL jobs for S subsets, in parallel threads (MAGUS's -np). OPAL jar: $OPAL_JAR (the image sets it); heap per job: $OPAL_XMX (default 2g).
 """
 import concurrent.futures
 import os
@@ -99,6 +99,8 @@ def opal_pair_weights(g):
     os.rmdir(tmp)
     rows, cols, vals = np.concatenate(rows), np.concatenate(cols), np.concatenate(vals)
     W = sp.csr_matrix((np.r_[vals, vals], (np.r_[rows, cols], np.r_[cols, rows])), shape=(g.N, g.N))
-    g.notes["opal_pairs"] = {"jobs": len(pairs), "opal_edges": int(len(vals)),
-                             "opal_edges_in_graph": int((pair_lookup(W, g.a, g.b) > 0).sum())}
-    return pair_lookup(W, g.a, g.b)
+    on_edges = pair_lookup(W, g.a, g.b)
+    lo, hi = np.minimum(rows, cols), np.maximum(rows, cols)
+    missing = pair_lookup(g.adjacency(), lo, hi) == 0
+    g.notes["opal_pairs"] = {"jobs": len(pairs), "opal_edges": int(len(vals)), "opal_edges_in_graph": int((on_edges > 0).sum())}
+    return on_edges, lo[missing], hi[missing], vals[missing]

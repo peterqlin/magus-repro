@@ -4,8 +4,8 @@
 
 Usage: graphmods_train.py [--dumps runs/_graphmods/edge_features] [--out results/graphmods_edge_model.json]
 
-Two models: "even" fitted on the even replicates, "odd" on the odd ones; learned_weights uses the one fitted on the
-other parity. Each edge counts with weight w (the loss is over letter pairs, as MAGUS's weights are). Prints, per
+Per feature set (graphmods/learned.py SETS: base, opal), two models: "even" fitted on the even replicates, "odd" on the
+odd ones; learned_weights uses the one fitted on the other parity. Each edge counts with weight w (the loss is over letter pairs, as MAGUS's weights are). Prints, per
 model, the held-out weighted log loss against a constant model and the share of false and of true weight a cut at
 p >= 0.5 keeps.
 """
@@ -22,12 +22,14 @@ sys.path.insert(0, ROOT)
 from graphmods import learned  # noqa: E402
 
 
-def load(paths):
+def load(paths, features):
     X, y, w = [], [], []
     for p in paths:
         z = np.load(p)
-        assert list(z["features"]) == learned.FEATURES, "{}: dumped with other features".format(p)
-        X.append(z["X"]); y.append(z["y"]); w.append(z["w"])
+        names = list(z["features"])
+        missing = [f for f in features if f not in names]
+        assert not missing, "{}: dumped without {}".format(p, missing)
+        X.append(z["X"][:, [names.index(f) for f in features]]); y.append(z["y"]); w.append(z["w"])
     return np.concatenate(X), np.concatenate(y), np.concatenate(w)
 
 
@@ -52,19 +54,22 @@ def main():
     if not by[0] or not by[1]:
         sys.exit("need dumps of even and odd replicates in {} (found {} and {})".format(a.dumps, len(by[0]), len(by[1])))
     models = {}
-    for parity, label in ((0, "even"), (1, "odd")):
-        X, y, w = load(by[parity])
-        models[label] = learned.fit(X, y, w, a.l2)
-        models[label]["datasets"] = len(by[parity])
-        Xt, yt, wt = load(by[1 - parity])
-        p = learned.predict(models[label], Xt)
-        const = np.full(len(yt), np.average(y, weights=w))
-        keep = p >= 0.5
-        true_w, false_w = wt * yt, wt * (1 - yt)
-        print("model {} ({} datasets, {} edges) on the {} other-parity datasets: log loss {:.4f} (constant {:.4f}); "
-              "cut p >= 0.5 keeps {:.1%} of true and {:.1%} of false weight".format(
-                  label, len(by[parity]), len(y), len(by[1 - parity]), logloss(p, yt, wt), logloss(const, yt, wt),
-                  true_w[keep].sum() / true_w.sum(), false_w[keep].sum() / max(false_w.sum(), 1e-12)))
+    for fset, features in learned.SETS.items():
+        models[fset] = {}
+        for parity, label in ((0, "even"), (1, "odd")):
+            X, y, w = load(by[parity], features)
+            m = models[fset][label] = learned.fit(X, y, w, a.l2)
+            m.update(features=features, datasets=len(by[parity]))
+            Xt, yt, wt = load(by[1 - parity], features)
+            p = learned.predict(m, Xt)
+            const = np.full(len(yt), np.average(y, weights=w))
+            keep = p >= 0.5
+            true_w, false_w = wt * yt, wt * (1 - yt)
+            print("{} model {} ({} datasets, {} edges) on the {} other-parity datasets: log loss {:.4f} (constant "
+                  "{:.4f}); cut p >= 0.5 keeps {:.1%} of true and {:.1%} of false weight".format(
+                      fset, label, len(by[parity]), len(y), len(by[1 - parity]), logloss(p, yt, wt),
+                      logloss(const, yt, wt), true_w[keep].sum() / true_w.sum(),
+                      false_w[keep].sum() / max(false_w.sum(), 1e-12)))
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     json.dump(models, open(a.out, "w"), indent=1)
     print("wrote", a.out)
