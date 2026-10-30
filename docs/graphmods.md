@@ -162,6 +162,8 @@ inputs. It is trained in three steps, since the labels need the reference:
 3. `learned_weights` scores a dataset with the model fitted on the other parity, so no dataset is scored by a model
    that saw it. The sweep passes the dataset name (`<condition>_R<replicate>`) as `$GRAPHMODS_NAME`.
 
+On ICC, `scripts/icc/submit_learned.sh` submits the three steps as dependent jobs.
+
 ## Running a sweep
 
 The sweep reads `runs/<name>/work`, which `run_one.sh` keeps, plus the dataset's reference alignment.
