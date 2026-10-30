@@ -15,7 +15,7 @@ import csv
 import json
 import statistics as st
 
-FAMILY_ORDER = ["strict", "adaptive", "network", "merge", "whole", "ceiling"]
+FAMILY_ORDER = ["strict", "adaptive", "network", "merge", "evidence", "whole", "ceiling"]
 
 
 def load(paths):

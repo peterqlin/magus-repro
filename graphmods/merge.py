@@ -123,8 +123,9 @@ def progressive(job, merge_two):
 def run_strategy(strategy, params, magus_argv, info_path=None):
     job = parse_magus_args(magus_argv)
     t0 = time.time()
-    strategy.merge(job, **params)
+    extra = strategy.merge(job, **params) or {}  # a strategy may return extra info fields
     info = {"strategy": strategy.NAME, "params": params, "family": strategy.FAMILY, "subsets": len(job.subsets),
             "merge_tool_s": round(time.time() - t0, 2)}
+    info.update(extra)
     if info_path:
         json.dump(info, open(info_path, "w"), indent=1)
