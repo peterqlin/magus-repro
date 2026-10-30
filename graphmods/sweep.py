@@ -82,7 +82,7 @@ def main():
             # build the graph cache in an untimed run, so every timed run (the control included) loads the same cache
             warm = os.path.join(a.work, name, "runs", "_warmup")
             replay(rep["subsets"], rep["backbones"].split(","), rep["reference"], warm, "magus", {}, cache, a.threads,
-                   a.strategies)
+                   a.strategies, name=name)
             shutil.rmtree(warm, ignore_errors=True)
         for m, params in todo:
             variant = registry.variant_name(m.NAME, params)
@@ -91,7 +91,7 @@ def main():
             run_dir = os.path.join(a.work, name, "runs", variant)
             try:
                 row = replay(rep["subsets"], rep["backbones"].split(","), rep["reference"], run_dir, m.NAME, params,
-                             cache, a.threads, a.strategies)
+                             cache, a.threads, a.strategies, name=name)
                 row.update(name=name, condition=rep.get("condition"), family=m.FAMILY)
             except subprocess.CalledProcessError as e:
                 log = os.path.join(run_dir, "magus.log")

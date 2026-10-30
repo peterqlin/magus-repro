@@ -9,7 +9,8 @@
 # A separate run of some strategies: GRAPHMODS_ONLY=trace,opal_progressive GRAPHMODS_TAG=merge submit_graphmods.sh
 # runs only those strategies (and the MAGUS control, timed on the same node) into runs/_graphmods/rows_merge/ and
 # collects them into results/graphmods_merge.md, _rows.jsonl, _scores.csv, .csv. Unset, both default to the full
-# sweep above.
+# sweep above. GRAPHMODS_TIME (default SLURM_TIME) sets the per-dataset time limit, for strategies that build
+# backbones or run another aligner (more_backbones, custom_backbones, consensus_runs, opal_evidence).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
@@ -22,7 +23,7 @@ mkdir -p runs/slurm "runs/_graphmods/rows${GRAPHMODS_TAG:+_$GRAPHMODS_TAG}"
 source scripts/icc/slurm_common.sh
 
 array_job="$(sbatch "${common[@]}" \
-    --time "$SLURM_TIME" --cpus-per-task "$GRAPHMODS_CPUS_PER_JOB" --mem "$GRAPHMODS_MEM" \
+    --time "${GRAPHMODS_TIME:-$SLURM_TIME}" --cpus-per-task "$GRAPHMODS_CPUS_PER_JOB" --mem "$GRAPHMODS_MEM" \
     --array "${1:-1-$rows}" --output 'runs/slurm/graphmods_%A_%a.out' \
     scripts/icc/graphmods_array.sbatch | cut -d';' -f1)"
 

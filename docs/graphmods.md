@@ -40,7 +40,7 @@ A strategy is a file `strategies/NAME.py`:
 """One-line description."""
 import numpy as np
 
-FAMILY = "strict"                        # strict | adaptive | network | control
+FAMILY = "strict"                        # a label for the tables, e.g. strict | adaptive | network | structure
 GRID = [{"K": K} for K in range(2, 11)]  # the sweep for this strategy
 
 def apply(g, K):
@@ -63,6 +63,17 @@ available on `g` are:
 | `tc` | triadic-closure score (resource allocation on `s`) |
 | `missing_tc()` | `(a, b, t, poss)` for missing pairs that are each other's best missing partner |
 | `posterior(kind)` | mixture posterior that an edge is a true homology (`kind` = `binom` or `bb`) |
+| `kb` | per-backbone votes: bit j is set when backbone j aligns a letter pair of the two columns |
+| `backbone_em` | posterior that the edge is true, with each backbone a noisy annotator (one-coin Dawid–Skene EM on `kb`) |
+| `chain_offset` | columns between the edge and the heaviest non-crossing chain of edges (k ≥ 2) between its two subsets |
+| `diag_support` | how many of `(a-1, b-1)` and `(a+1, b+1)` are edges too (0, 1 or 2) |
+| `best_ratio` | `(ra, rb)`: `w` over the heaviest edge from `a` into `b`'s subset, and from `b` into `a`'s |
+| `occupancy` | per node: fraction of its subset's sequences with a residue in the column |
+| `opal_pairs` | letter pairs that OPAL's alignment of the edge's two subset alignments puts in one column |
+
+`occupancy` and `opal_pairs` read the subset alignments (the hook sets `g.subset_paths`; `opal_pairs` runs OPAL on
+every pair of subsets, `graphmods/evidence.py`). Strategies that use them set `NEEDS_INPUTS = True`, so
+`tests/test_strategies.py`, which has no subset alignments, skips them.
 
 A feature is computed the first time it is used and cached per dataset. The cache keeps how long it took, and
 the tables charge each setting the cold cost of every feature it uses. So `merge×` is what one MAGUS run with
@@ -84,6 +95,23 @@ A strategy can do more than change the graph:
   - `clustalo_progressive`: Clustal Omega profile–profile merges along the guide tree.
   - `opal_progressive`: OPAL profile–profile merges along the guide tree (PASTA's DNA merger; `$OPAL_JAR`).
   - `hmm_merge`: UPP-like. An HMM is built from one backbone and every sequence is aligned to it.
+
+  A whole merge can also run MAGUS's own merge as a step (`merge.magus_merge`), on other backbones or subsets or
+  with another graph strategy. Work shared by a strategy's settings (backbones, group merges) is built once per
+  dataset in `merge.shared_dir`. Backbone builds are reported as `backbone_s` and left out of `merge_s`; other shared
+  work is charged to every setting.
+  - `more_backbones` (`evidence`): MAGUS's merge with a fresh set of r backbones of m sequences, built by MAGUS,
+    optionally cut at k ≥ cutoff · r.
+  - `custom_backbones` (`evidence`): backbones aligned with another MAFFT method (L-INS-i, G-INS-i, FFT-NS-2),
+    added to the run's own or used instead of them. `pick=spread` picks per subset the sequences that fill columns
+    few others fill.
+  - `iterate` (`iterate`): MAGUS's merge, then again with the edges the first alignment did not use down-weighted
+    (or the ones it used boosted).
+  - `consensus_runs` (`iterate`): the 40 backbones of `more_backbones` r=40 in 4 groups, each merged on its own;
+    the final merge on all 40 weights each edge by how many of the 4 group merges align its two columns.
+  - `subset_repair` (`repair`): splits subset columns whose residues the backbones put in different columns
+    (`graphmods/repair.py`), then MAGUS's merge on the repaired subsets. It is the only strategy that can change the
+    subset alignments' own residue pairs.
 - **Ceilings** (`FAMILY = "ceiling"`): `g.true_pairs` and `g.true_missing()` give, from the reference alignment,
   the true residue pairs of each edge and the true column pairs MAGUS has no edge for. `g.true_w` counts, per edge,
   the residue pairs the backbones aligned across it (the pairs `w` counts) that the reference also aligns
@@ -96,10 +124,42 @@ A strategy can do more than change the graph:
     could do.
   - `oracle_graph`: the graph built from true homologies, i.e. a merge of these subsets with perfect evidence.
     `add=0` only reweights MAGUS's edges; `norm=none` keeps raw counts instead of MAGUS's total weight.
+  - `oracle_add`: MAGUS's graph plus the true column pairs it has no edge for.
+  - `oracle_merge` (whole merge): no graph, MCL or trace. Per subset, an order-preserving assignment of its columns
+    to reference columns that puts the most residues in their own reference column; columns of different subsets
+    assigned to the same reference column are merged. About the best these subset alignments allow.
+- **The floor:** `python3 -m graphmods.spsplit --reference REF --estimate EST --subsets DIR` splits an alignment's
+  SPFN and SPFP into residue pairs within one subset and across subsets. `floor_err` is the error left with every
+  cross-subset pair right.
 - **Errors inside the subsets:** `scripts/subset_errors.py` scores each subset alignment with FastSP against the
   reference restricted to its sequences, and splits MAGUS's final errors into within-subset pairs (which no graph
   change can fix, since the merge keeps each subset's columns) and cross-subset pairs. On ICC:
   `scripts/icc/submit_subset_errors.sh` → `results/ceiling_subsets/`, `results/ceiling_subset_errors.csv`.
+
+### The graph-step strategies added for the merge-step study
+
+| strategy | family | idea |
+|---|---|---|
+| `chain_filter` | structure | down-weight edges more than d columns off the heaviest non-crossing chain between their subsets |
+| `diagonal` | structure | down-weight edges without neighbours on the diagonal |
+| `gappy_discount` | structure | weight × (smaller column occupancy)^γ, or delete edges between columns below occupancy θ |
+| `reciprocal` | network | keep an edge when it is close to the heaviest edge of its endpoints into each other's subset |
+| `backbone_em` | adaptive | weight × (or cut at) the Dawid–Skene posterior |
+| `opal_evidence` | evidence | add OPAL's pair counts to `w`, keep only edges OPAL supports, or use OPAL's counts alone |
+| `learned_weights` | learned | weight × (or cut at) a fitted probability that the edge's pairs are true (below) |
+
+### Learned weights
+
+`learned_weights` applies a fractional logistic regression from the edge features of `graphmods/learned.py` to the
+fraction of an edge's weight that is true (`true_w / w`). It is trained in three steps, since the labels need
+the reference:
+
+1. `dump_edge_features` (a ceiling; it leaves the graph unchanged) writes up to 300,000 random edges per dataset,
+   with features and labels, to `runs/_graphmods/edge_features/<name>.npz`.
+2. `python3 scripts/graphmods_train.py` fits two models, one on the even replicates and one on the odd, and writes
+   `results/graphmods_edge_model.json`. It prints each model's held-out log loss.
+3. `learned_weights` scores a dataset with the model fitted on the other parity, so no dataset is scored by a model
+   that saw it. The sweep passes the dataset name (`<condition>_R<replicate>`) as `$GRAPHMODS_NAME`.
 
 ## Running a sweep
 
@@ -121,6 +181,8 @@ scripts/dk.sh python3 tests/test_strategies.py                  # quick check, n
   dataset (every setting, rows in `runs/_graphmods/rows/<name>.jsonl`), then a collect job. That job runs
   `scripts/graphmods_collect.py` (→ `results/graphmods_rows.jsonl` and `results/graphmods_scores.csv`, scored like
   `results/scores.csv`) and `graphmods.tables` (→ `results/graphmods.md`, `results/graphmods.csv`).
+  `GRAPHMODS_ONLY` and `GRAPHMODS_TAG` run some strategies into their own rows, work dir and results files, and
+  `GRAPHMODS_TIME` raises the per-dataset time limit (`scripts/icc/submit_graphmods.sh`).
 
 Results of the 70-dataset sweep (on the project's own MAGUS(Fast) runs) are in `cs581/graphmods/results/` of
 evanlin23/scratch.

@@ -42,6 +42,35 @@ def popcount(x):
     return c
 
 
+def heaviest_chain(pa, pb, w):
+    """Heaviest set of points strictly increasing in both pa and pb (weighted LIS with a Fenwick tree of maxima).
+    Returns the chain's pa and pb, increasing."""
+    order = np.lexsort((-pb, pa))  # equal pa: larger pb first, so two points with one pa never chain
+    pa, pb, w = pa[order], pb[order], w[order].astype(float)
+    size = int(pb.max()) + 2
+    tree_v, tree_i = [0.0] * (size + 1), [-1] * (size + 1)
+    best, parent = [0.0] * len(pa), [-1] * len(pa)
+    for i in range(len(pa)):
+        j, v, arg = int(pb[i]), 0.0, -1  # max over pb' < pb[i]: prefix [0, pb[i]) = Fenwick indices 1..pb[i]
+        while j > 0:
+            if tree_v[j] > v:
+                v, arg = tree_v[j], tree_i[j]
+            j -= j & -j
+        best[i], parent[i] = v + w[i], arg
+        j = int(pb[i]) + 1
+        while j <= size:
+            if best[i] > tree_v[j]:
+                tree_v[j], tree_i[j] = best[i], i
+            j += j & -j
+    i = int(np.argmax(best))
+    chain = []
+    while i >= 0:
+        chain.append(i)
+        i = parent[i]
+    chain = chain[::-1]
+    return pa[chain], pb[chain]
+
+
 def pair_lookup(M, r, c):
     """M[r[i], c[i]] for CSR M (0 where absent), vectorized."""
     M = M.tocsr()
@@ -59,9 +88,10 @@ def pair_lookup(M, r, c):
 
 
 class EdgeGraph:
-    def __init__(self, other, a, b, w, k, n, sub, R, B, cache_dir=None):
+    def __init__(self, other, a, b, w, k, n, sub, R, B, cache_dir=None, kb=None):
         self.other = other          # (rows, cols, vals): self loops and same-subset entries, kept as MAGUS built them
         self.a, self.b, self.w, self.k, self.n = a, b, w, k, n
+        self.kb = kb                # per edge: bit j set if backbone j aligns a letter pair of it (None: older cache)
         self.sub = sub              # node -> subset index
         self.R = R                  # (nodes x backbones) letters per node per backbone
         self.B = B                  # number of backbones
@@ -78,7 +108,7 @@ class EdgeGraph:
 
     # ------------------------------------------------------------------ construction
     @classmethod
-    def from_matrices(cls, total, support, cover, R, sub, B, cache_dir=None):
+    def from_matrices(cls, total, support, cover, R, sub, B, cache_dir=None, support_bits=None):
         coo = sp.triu(total, k=1).tocoo()
         keep = sub[coo.row] != sub[coo.col]
         a, b, w = coo.row[keep].astype(np.int64), coo.col[keep].astype(np.int64), coo.data[keep].astype(np.int64)
@@ -86,20 +116,27 @@ class EdgeGraph:
         a, b, w = a[o], b[o], w[o]
         k = pair_lookup(support, a, b).astype(np.int64)
         n = popcount(cover[a] & cover[b])
+        kb = pair_lookup(support_bits, a, b).astype(np.int64) if support_bits is not None else None
         full = total.tocoo()
         cross = sub[full.row] != sub[full.col]
         other = (full.row[~cross].astype(np.int64), full.col[~cross].astype(np.int64), full.data[~cross].astype(np.int64))
-        return cls(other, a, b, w, k, n, sub, R, B, cache_dir)
+        g = cls(other, a, b, w, k, n, sub, R, B, cache_dir, kb)
+        g.cover = cover
+        return g
 
     def save(self, path):
         np.savez_compressed(path, a=self.a, b=self.b, w=self.w, k=self.k, n=self.n, sub=self.sub, R=self.R,
-                            B=np.array([self.B]), o_r=self.other[0], o_c=self.other[1], o_v=self.other[2])
+                            B=np.array([self.B]), o_r=self.other[0], o_c=self.other[1], o_v=self.other[2],
+                            **({"kb": self.kb} if self.kb is not None else {}),
+                            **({"cover": self.cover} if getattr(self, "cover", None) is not None else {}))
 
     @classmethod
     def load(cls, path, cache_dir=None):
         z = np.load(path)
-        return cls((z["o_r"], z["o_c"], z["o_v"]), z["a"], z["b"], z["w"], z["k"], z["n"], z["sub"], z["R"],
-                   int(z["B"][0]), cache_dir)
+        g = cls((z["o_r"], z["o_c"], z["o_v"]), z["a"], z["b"], z["w"], z["k"], z["n"], z["sub"], z["R"],
+                int(z["B"][0]), cache_dir, z["kb"] if "kb" in z.files else None)
+        g.cover = z["cover"] if "cover" in z.files else None
+        return g
 
     # ------------------------------------------------------------------ features (lazy, cached)
     def _cached(self, name, fn):
@@ -251,6 +288,120 @@ class EdgeGraph:
             a, b, t = ma[sel], mb[sel], mt[sel]
             return a, b, t, self.poss_of(a, b)
         return self._cached("missing_tc", f)
+
+    # ------------------------------------------------------------------ structure (merge-step ideas)
+    def subset_pos(self):
+        """node -> its column index within its own subset alignment (nodes are contiguous per subset)."""
+        first = np.r_[0, np.flatnonzero(np.diff(self.sub)) + 1]
+        start = np.zeros(int(self.sub.max()) + 1, dtype=np.int64)
+        start[self.sub[first]] = first
+        return np.arange(self.N) - start[self.sub]
+
+    @property
+    def chain_offset(self):
+        """Per edge (a, b): how far b's column is from where the heaviest order-preserving chain of edges between
+        the two subsets puts a's partner (columns; interpolated between chain points). Two subsets' columns can only
+        align in increasing order, so edges far off the chain cannot all be right. Chain: heaviest strictly
+        increasing set of edges with k >= 2 (weighted longest increasing subsequence)."""
+        def f():
+            pos = self.subset_pos()
+            nsub = int(self.sub.max()) + 1
+            key = self.sub[self.a] * nsub + self.sub[self.b]
+            order = np.argsort(key, kind="stable")
+            out = np.zeros(len(self.a))
+            for idx in np.split(order, np.flatnonzero(np.diff(key[order])) + 1):
+                pa, pb = pos[self.a[idx]], pos[self.b[idx]]
+                strong = self.k[idx] >= 2
+                if strong.sum() < 2:
+                    continue
+                ca, cb = heaviest_chain(pa[strong], pb[strong], self.w[idx][strong])
+                out[idx] = np.abs(pb - np.interp(pa, ca, cb))
+            return out
+        return self._cached("chain_offset", f)
+
+    @property
+    def best_ratio(self):
+        """Per edge (a, b): w over the heaviest edge from a into b's subset, and over the heaviest edge from b into
+        a's subset (1, 1: each is the other's best partner there, as in a reciprocal best hit)."""
+        def f():
+            out = []
+            for x, y in ((self.a, self.b), (self.b, self.a)):
+                key = x * (int(self.sub.max()) + 1) + self.sub[y]
+                _, inv = np.unique(key, return_inverse=True)
+                top = np.zeros(inv.max() + 1)
+                np.maximum.at(top, inv, self.w)
+                out.append(self.w / top[inv])
+            return out[0], out[1]
+        return self._cached("best_ratio", f)
+
+    @property
+    def diag_support(self):
+        """Per edge (a, b): how many of (a-1, b-1) and (a+1, b+1) are edges too, within the same two subsets."""
+        def f():
+            A = self.adjacency()
+            out = np.zeros(len(self.a))
+            for d in (-1, 1):
+                a2, b2 = self.a + d, self.b + d
+                ok = (a2 >= 0) & (a2 < self.N) & (b2 >= 0) & (b2 < self.N)
+                ok[ok] &= (self.sub[a2[ok]] == self.sub[self.a[ok]]) & (self.sub[b2[ok]] == self.sub[self.b[ok]])
+                hit = np.zeros(len(self.a))
+                hit[ok] = pair_lookup(A, a2[ok], b2[ok]) > 0
+                out += hit
+            return out
+        return self._cached("diag_support", f)
+
+    @property
+    def occupancy(self):
+        """node -> fraction of its subset's sequences with a residue in that column (needs self.subset_paths)."""
+        def f():
+            from .score import read_fasta
+            if not getattr(self, "subset_paths", None):
+                raise SystemExit("occupancy needs the subset alignments (the hook sets them)")
+            occ, base = np.zeros(self.N), 0
+            for path in self.subset_paths:
+                rows = list(read_fasta(path).values())
+                M = np.frombuffer("".join(rows).encode(), dtype=np.uint8).reshape(len(rows), -1)
+                occ[base:base + M.shape[1]] = ((M != ord("-")) & (M != ord("."))).mean(axis=0)
+                base += M.shape[1]
+            assert base == self.N, "subset alignments do not match the graph"
+            return occ
+        return self._cached("occupancy", f)
+
+    @property
+    def backbone_em(self):
+        """Per edge: posterior that it is true, with each backbone treated as a noisy annotator (one-coin
+        Dawid-Skene, EM): backbone j votes for an edge it holds both columns of with probability p_j if the edge
+        is true and q_j if not. Backbones that agree with the consensus get more say than k's equal votes."""
+        def f():
+            if self.kb is None or getattr(self, "cover", None) is None:
+                raise SystemExit("backbone_em needs per-backbone votes: rebuild the graph cache")
+            # edges with the same votes and the same exposed backbones share a posterior: fit on the distinct patterns
+            pat, inv, cnt = np.unique(np.column_stack([self.cover[self.a] & self.cover[self.b], self.kb]), axis=0,
+                                      return_inverse=True, return_counts=True)
+            bits = np.arange(self.B, dtype=np.int64)
+            X = ((pat[:, :1] >> bits) & 1).astype(bool)
+            V = ((pat[:, 1:] >> bits) & 1).astype(bool)
+            XV, XN, cnt = (X & V).astype(float), (X & ~V).astype(float), cnt.astype(float)
+            pi, p, q = 0.5, np.full(self.B, 0.8), np.full(self.B, 0.3)
+            for _ in range(200):
+                lt = np.log(pi) + XV @ np.log(p) + XN @ np.log(1 - p)
+                lf = np.log(1 - pi) + XV @ np.log(q) + XN @ np.log(1 - q)
+                post = 1.0 / (1.0 + np.exp(np.clip(lf - lt, -50, 50)))
+                wt, wf = cnt * post, cnt * (1 - post)
+                pi = float(np.clip(wt.sum() / cnt.sum(), 1e-3, 1 - 1e-3))
+                p = np.clip((XV.T @ wt) / np.maximum(X.T @ wt, 1e-9), 1e-3, 1 - 1e-3)
+                q = np.clip((XV.T @ wf) / np.maximum(X.T @ wf, 1e-9), 1e-3, 1 - 1e-3)
+            self.notes["backbone_em"] = {"pi": round(pi, 4), "p": np.round(p, 3).tolist(), "q": np.round(q, 3).tolist(),
+                                         "patterns": int(len(pat))}
+            return post[inv.ravel()]
+        return self._cached("backbone_em", f)
+
+    @property
+    def opal_pairs(self):
+        """Per edge: letter pairs that an OPAL alignment of the edge's two subset alignments puts in one column
+        (graphmods/evidence.py; needs self.subset_paths and $OPAL_JAR)."""
+        from .evidence import opal_pair_weights
+        return self._cached("opal_pairs", lambda: opal_pair_weights(self))
 
     # ------------------------------------------------------------------ truth (ceilings only)
     def _truth(self):
