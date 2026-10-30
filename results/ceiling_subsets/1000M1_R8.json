@@ -1,0 +1,19 @@
+{
+ "ref_pairs": 494819843,
+ "est_pairs": 483464519,
+ "shared": 414236500,
+ "ref_within": 20677200,
+ "est_within": 20666774,
+ "shared_within": 19423879,
+ "name": "1000M1_R8",
+ "subsets": 25,
+ "SPFN": 0.16285390357718538,
+ "SPFP": 0.14319151929327,
+ "SPFN_within": 0.002532883468054453,
+ "SPFP_within": 0.002570809131083309,
+ "FN_within_share": 0.015553102581013547,
+ "FP_within_share": 0.017953640996140593,
+ "subset_SPFN_mean": 0.053835074590684824,
+ "subset_SPFP_mean": 0.05354833640131134,
+ "condition": "1000M1"
+}

@@ -91,7 +91,9 @@ def summarize(rows):
         out.append(row)
     holm(out)
     fam_rank = {f: i for i, f in enumerate(FAMILY_ORDER)}
-    out.sort(key=lambda r: (fam_rank.get(r["family"], 9), r["strategy"] or "", tuple((r["params"] or {}).values())))
+    # params: by name, then numbers before strings (settings of one strategy may set different params, or mix types)
+    out.sort(key=lambda r: (fam_rank.get(r["family"], 9), r["strategy"] or "",
+                            tuple((k, isinstance(v, str), v) for k, v in (r["params"] or {}).items())))
     return out, conds, ctrl
 
 

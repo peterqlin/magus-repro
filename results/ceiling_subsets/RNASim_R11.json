@@ -1,0 +1,19 @@
+{
+ "ref_pairs": 754771843,
+ "est_pairs": 752214696,
+ "shared": 683631322,
+ "ref_within": 31684912,
+ "est_within": 31747221,
+ "shared_within": 30054367,
+ "name": "RNASim_R11",
+ "subsets": 25,
+ "SPFN": 0.09425433879096097,
+ "SPFP": 0.09117526467470133,
+ "SPFN_within": 0.0021603150874296723,
+ "SPFP_within": 0.0022504931225113952,
+ "FN_within_share": 0.022920059862929595,
+ "FP_within_share": 0.024683154258348387,
+ "subset_SPFN_mean": 0.04258050184133081,
+ "subset_SPFP_mean": 0.04403247096003161,
+ "condition": "RNASim"
+}
