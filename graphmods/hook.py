@@ -42,7 +42,7 @@ class _Row:
         return self.get(key) is not None
 
     def items(self):
-        return zip(self.idx.tolist(), self.val.tolist())
+        return list(zip(self.idx.tolist(), self.val.tolist()))  # a list: MAGUS's mlr_mcl takes len() of it
 
     def keys(self):
         return self.idx.tolist()
@@ -196,3 +196,4 @@ def install(name, params=None, strategies=None, cache_dir=None, info_path=None):
     gb.buildMatrix = buildMatrix
     alignment_graph.AlignmentGraph.writeGraphToFile = writeGraphToFile
     alignment_graph.AlignmentGraph.computeClusteringCost = computeClusteringCost
+    return strategy

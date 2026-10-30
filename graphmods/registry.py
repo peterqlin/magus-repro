@@ -2,12 +2,14 @@
 """Discover graph strategies: every *.py file in the strategies folder (default: <repo>/strategies, or
 $GRAPHMODS_STRATEGIES) that defines
 
-    FAMILY = "strict" | "adaptive" | "network" | "control"
+    FAMILY = "strict" | "adaptive" | "network" | "merge" | "control"
     GRID   = [ {param: value, ...}, ... ]           # the sweep for this strategy
     def apply(g, **params): ...                      # g: graphmods.graph.EdgeGraph
+    def magus_args(**params): ...                    # optional: extra MAGUS flags for the rest of the merge
 
 apply returns the new weight of every existing cross-subset edge (array aligned with g.a / g.b; 0 deletes the edge),
-or a pair (weights, (add_a, add_b, add_w)) to also add edges. The module docstring is the strategy's description.
+or a pair (weights, (add_a, add_b, add_w)) to also add edges. magus_args returns MAGUS command-line flags (e.g. the
+trace method) appended after the caller's, so they win. The module docstring is the strategy's description.
 """
 import importlib.util
 import os

@@ -26,9 +26,11 @@ def main(argv=None):
     ap.add_argument("--cache", help="directory to cache the graph and features between runs on the same inputs")
     ap.add_argument("--info", help="write strategy info (edges kept / added, timings) to this JSON file")
     a = ap.parse_args(argv[:i])
-    hook.install(a.strategy, registry.parse_params(a.param), a.strategies, a.cache, a.info)
+    params = registry.parse_params(a.param)
+    strategy = hook.install(a.strategy, params, a.strategies, a.cache, a.info)
+    extra = [str(x) for x in strategy.magus_args(**params)] if hasattr(strategy, "magus_args") else []
     from magus.main import main as magus_main
-    sys.argv = ["magus"] + argv[i + 1:]
+    sys.argv = ["magus"] + argv[i + 1:] + extra
     magus_main()
 
 
