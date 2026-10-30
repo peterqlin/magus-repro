@@ -26,9 +26,8 @@ def backbones(job, r, m):
     shared = os.path.join(os.path.dirname(os.path.dirname(job.out)), "_backbones_r{}_m{}".format(r, m))
     done = os.path.join(shared, "build.json")
     built_now = not os.path.exists(done)
-    if built_now:
-        shutil.rmtree(shared, ignore_errors=True)
-        os.makedirs(shared)
+    if built_now:  # MAGUS keeps finished backbones in work/graph, so a build stopped by a time limit resumes
+        os.makedirs(shared, exist_ok=True)
         t0 = time.time()
         M.run([sys.executable, "-m", "magus.main", "-s"] + job.subsets +
               ["-d", os.path.join(shared, "work"), "-o", os.path.join(shared, "unused.fasta"), "-np", job.threads,
