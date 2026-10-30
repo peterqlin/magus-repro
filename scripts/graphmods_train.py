@@ -3,6 +3,7 @@
 """Fit the edge model that strategies/learned_weights.py applies, from the dumps of strategies/dump_edge_features.py.
 
 Usage: graphmods_train.py [--dumps runs/_graphmods/edge_features] [--out results/graphmods_edge_model.json]
+                          [--per-dataset 100000]
 
 Per feature set (graphmods/learned.py SETS: base, opal), two models: "even" fitted on the even replicates, "odd" on the
 odd ones; learned_weights uses the one fitted on the other parity. Each edge counts with weight w (the loss is over letter pairs, as MAGUS's weights are). Prints, per
@@ -22,14 +23,17 @@ sys.path.insert(0, ROOT)
 from graphmods import learned  # noqa: E402
 
 
-def load(paths, features):
+def load(paths, features, per_dataset):
     X, y, w = [], [], []
     for p in paths:
         z = np.load(p)
         names = list(z["features"])
         missing = [f for f in features if f not in names]
         assert not missing, "{}: dumped without {}".format(p, missing)
-        X.append(z["X"][:, [names.index(f) for f in features]]); y.append(z["y"]); w.append(z["w"])
+        idx = np.arange(len(z["y"]))
+        if len(idx) > per_dataset:
+            idx = np.sort(np.random.default_rng(1).choice(idx, per_dataset, replace=False))
+        X.append(z["X"][idx][:, [names.index(f) for f in features]]); y.append(z["y"][idx]); w.append(z["w"][idx])
     return np.concatenate(X), np.concatenate(y), np.concatenate(w)
 
 
@@ -43,6 +47,7 @@ def main():
     ap.add_argument("--dumps", default=learned.DUMP_DIR)
     ap.add_argument("--out", default=learned.MODEL)
     ap.add_argument("--l2", type=float, default=1e-3)
+    ap.add_argument("--per-dataset", type=int, default=100000, help="edges per dataset (a random subset of the dump)")
     a = ap.parse_args()
     files = sorted(glob.glob(os.path.join(a.dumps, "*.npz")))
     files = [f for f in files if not f.endswith(".tmp.npz")]
@@ -57,10 +62,10 @@ def main():
     for fset, features in learned.SETS.items():
         models[fset] = {}
         for parity, label in ((0, "even"), (1, "odd")):
-            X, y, w = load(by[parity], features)
+            X, y, w = load(by[parity], features, a.per_dataset)
             m = models[fset][label] = learned.fit(X, y, w, a.l2)
             m.update(features=features, datasets=len(by[parity]))
-            Xt, yt, wt = load(by[1 - parity], features)
+            Xt, yt, wt = load(by[1 - parity], features, a.per_dataset)
             p = learned.predict(m, Xt)
             const = np.full(len(yt), np.average(y, weights=w))
             keep = p >= 0.5
