@@ -396,19 +396,21 @@ class EdgeGraph:
             return post[inv.ravel()]
         return self._cached("backbone_em", f)
 
-    def _opal(self):
-        from .evidence import opal_pair_weights
-        return self._cached("opal", lambda: opal_pair_weights(self))
+    def pair_evidence(self, aligner="opal"):
+        """(per-edge letter pairs, missing a, missing b, missing letter pairs) from `aligner` (opal, mafft, clustal)
+        aligning every pair of subset alignments (graphmods/evidence.py; needs self.subset_paths)."""
+        from .evidence import pair_weights
+        return self._cached("opal" if aligner == "opal" else "pairs_" + aligner, lambda: pair_weights(self, aligner))
 
     @property
     def opal_pairs(self):
         """Per edge: letter pairs that an OPAL alignment of the edge's two subset alignments puts in one column
         (graphmods/evidence.py; needs self.subset_paths and $OPAL_JAR)."""
-        return self._opal()[0]
+        return self.pair_evidence("opal")[0]
 
     def opal_missing(self):
         """Column pairs OPAL aligns that have no edge: a, b, letter pairs."""
-        return self._opal()[1:]
+        return self.pair_evidence("opal")[1:]
 
     # ------------------------------------------------------------------ truth (ceilings only)
     def _truth(self):

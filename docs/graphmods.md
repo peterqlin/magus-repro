@@ -71,6 +71,7 @@ available on `g` are:
 | `occupancy` | per node: fraction of its subset's sequences with a residue in the column |
 | `opal_pairs` | letter pairs that OPAL's alignment of the edge's two subset alignments puts in one column |
 | `opal_missing()` | `(a, b, pairs)` for the column pairs OPAL aligns that have no edge |
+| `pair_evidence(aligner)` | `opal_pairs` and `opal_missing()` together, for `opal`, `mafft` or `clustal` |
 
 `occupancy` and `opal_pairs` read the subset alignments (the hook sets `g.subset_paths`; `opal_pairs` runs OPAL on
 every pair of subsets, `graphmods/evidence.py`). Strategies that use them set `NEEDS_INPUTS = True`, so
@@ -146,7 +147,8 @@ A strategy can do more than change the graph:
 | `gappy_discount` | structure | weight × (smaller column occupancy)^γ, or delete edges between columns below occupancy θ |
 | `reciprocal` | network | keep an edge when it is close to the heaviest edge of its endpoints into each other's subset |
 | `backbone_em` | adaptive | weight × (or cut at) the Dawid–Skene posterior |
-| `opal_evidence` | evidence | add OPAL's pair counts to `w`, keep only edges OPAL supports, or use OPAL's counts alone; `missing=1` also adds the column pairs OPAL aligns that MAGUS has no edge for |
+| `opal_evidence` | evidence | add OPAL's pair counts to `w`, keep only edges OPAL supports, or use OPAL's counts alone; `missing=1` also adds the column pairs OPAL aligns that MAGUS has no edge for; `optimize=1` adds MAGUS's trace optimizer |
+| `aligner_evidence` | evidence | the same with MAFFT `--merge` and Clustal Omega profile alignments of every subset pair, alone or averaged with OPAL's |
 | `learned_weights` | learned | weight × (or cut at) a fitted probability that the edge's pairs are true (below) |
 
 ### Learned weights
