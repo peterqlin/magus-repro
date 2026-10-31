@@ -18,7 +18,8 @@ GRID = [{"mode": "add", "lam": x} for x in (0.25, 0.5, 1, 2, 4)] + [{"mode": "ad
        [{"mode": "boost", "lam": x} for x in (0.5, 1, 3)] + [{"mode": "pairadd", "lam": x} for x in (0.5, 1)] + \
        [{"mode": "add", "lam": 1, "K": 3}, {"mode": "boost", "lam": 1, "K": 3}] + \
        [{"mode": "add", "lam": 0.1}, {"mode": "add", "lam": 0.25, "chain": 2}, {"mode": "add", "lam": 0.25, "optimize": 1},
-        {"mode": "add", "lam": 0.25, "K": 5, "optimize": 1}]
+        {"mode": "add", "lam": 0.25, "K": 5, "optimize": 1}, {"mode": "add", "lam": 0.25, "chain": 2, "optimize": 1},
+        {"mode": "add", "lam": 0.5, "optimize": 1}]
 NEEDS_INPUTS = True  # runs OPAL on the subset alignments
 
 
