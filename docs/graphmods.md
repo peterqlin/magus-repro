@@ -184,8 +184,9 @@ scripts/dk.sh python3 tests/test_strategies.py                  # quick check, n
   dataset (every setting, rows in `runs/_graphmods/rows/<name>.jsonl`), then a collect job. That job runs
   `scripts/graphmods_collect.py` (→ `results/graphmods_rows.jsonl` and `results/graphmods_scores.csv`, scored like
   `results/scores.csv`) and `graphmods.tables` (→ `results/graphmods.md`, `results/graphmods.csv`).
-  `GRAPHMODS_ONLY` and `GRAPHMODS_TAG` run some strategies into their own rows, work dir and results files, and
-  `GRAPHMODS_TIME` raises the per-dataset time limit (`scripts/icc/submit_graphmods.sh`).
+  `GRAPHMODS_ONLY` and `GRAPHMODS_TAG` run some strategies into their own rows, work dir and results files
+  (`scripts/icc/submit_graphmods.sh`). A task stopped by the 4 h limit loses only the setting it was on: submitting
+  the same command again skips finished settings, and backbone builds and group merges resume.
 
 Results of the 70-dataset sweep (on the project's own MAGUS(Fast) runs) are in `cs581/graphmods/results/` of
 evanlin23/scratch.
