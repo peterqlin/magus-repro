@@ -96,7 +96,7 @@ def build_edge_graph(context, cache_dir=None):
             files.append(path)
     files = sorted(files)
     sub = np.array([s for s, _ in context.graph.matSubPosMap], dtype=np.int64)
-    key = fingerprint(list(context.subalignmentPaths) + files)
+    key = fingerprint(list(context.subalignmentPaths) + files) + "-kb"  # "-kb": caches from before per-backbone votes rebuild
     if cache_dir:
         os.makedirs(cache_dir, exist_ok=True)
         meta = os.path.join(cache_dir, "graph.json")
@@ -109,6 +109,7 @@ def build_edge_graph(context, cache_dir=None):
     n = context.graph.matrixSize
     total = sp.csr_matrix((n, n), dtype=np.int64)
     support = sp.csr_matrix((n, n), dtype=np.int64)
+    support_bits = sp.csr_matrix((n, n), dtype=np.int64)  # bit b set: backbone b aligns a letter pair of the edge
     cover = np.zeros(n, dtype=np.int64)
     R = np.zeros((n, len(files)), dtype=np.int32)
     for bi, f in enumerate(files):
@@ -123,10 +124,12 @@ def build_edge_graph(context, cache_dir=None):
         prod = (A.T @ A).tocsr()
         total = total + prod
         support = support + (prod > 0).astype(np.int64)
+        support_bits = support_bits + (prod > 0).astype(np.int64) * (1 << bi)
         col = np.asarray(A.sum(axis=0)).ravel()
         R[:, bi] = col
         cover |= (col > 0).astype(np.int64) << bi
-    g = EdgeGraph.from_matrices(total.tocsr(), support.tocsr(), cover, R, sub, len(files), cache_dir)
+    g = EdgeGraph.from_matrices(total.tocsr(), support.tocsr(), cover, R, sub, len(files), cache_dir,
+                                support_bits=support_bits.tocsr())
     if cache_dir:
         g.save(os.path.join(cache_dir, "graph.npz"))
         json.dump({"key": key, "subsets": list(context.subalignmentPaths), "backbones": files},

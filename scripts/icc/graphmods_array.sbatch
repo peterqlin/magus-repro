@@ -20,8 +20,10 @@ SECONDS=0
 echo "$name: started $start"
 rows="runs/_graphmods/rows${GRAPHMODS_TAG:+_$GRAPHMODS_TAG}"  # GRAPHMODS_TAG / GRAPHMODS_ONLY: see submit_graphmods.sh
 mkdir -p "$rows"
+# a tagged run gets its own scratch dir: the sweep deletes <work>/<name> when the dataset is done
 scripts/dk.sh python3 -m graphmods.sweep --reps runs/graphmods_reps.tsv --names "$name" \
-    --out "$rows/$name.jsonl" --threads "$SLURM_CPUS_PER_TASK" ${GRAPHMODS_ONLY:+--only "$GRAPHMODS_ONLY"}
+    --out "$rows/$name.jsonl" --threads "$SLURM_CPUS_PER_TASK" ${GRAPHMODS_ONLY:+--only "$GRAPHMODS_ONLY"} \
+    --work "runs/_graphmods${GRAPHMODS_TAG:+/work_$GRAPHMODS_TAG}"
 status=$?
 echo "$name: exit $status after $SECONDS s"
 
