@@ -17,10 +17,15 @@ import glob
 import json
 import math
 import os
+import shutil
+import signal
 import subprocess
+import sys
 import time
 
 from .score import read_fasta, write_fasta
+
+PKG_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 class Job:
@@ -119,12 +124,84 @@ def progressive(job, merge_two):
     return next(iter(paths.values()))
 
 
+# ------------------------------------------------------------------ MAGUS's own merge as a building block
+def magus_merge(job, out, backbones=None, subsets=None, strategy="magus", params=None, name="magus", env=None):
+    """MAGUS's merge (graph step: graphmods strategy `strategy`) of `subsets` (default: the job's) with `backbones`
+    (default: the job's), with the replay's merge flags; writes `out`, MAGUS's work dir is job.path(name)."""
+    from .replay import MERGE_FLAGS
+    cmd = [sys.executable, "-m", "graphmods.run", "--strategy", strategy]
+    for k, v in (params or {}).items():
+        cmd += ["--param", "{}={}".format(k, v)]
+    cmd += (["--", "-s"] + list(subsets or job.subsets) + ["-b"] + list(backbones or job.backbones) +
+            ["-d", job.path(name), "-o", out, "-np", str(job.threads)] + MERGE_FLAGS)
+    with open(job.path(name + ".log"), "w") as log:
+        subprocess.run(cmd, cwd=PKG_ROOT, check=True, stdout=subprocess.DEVNULL, stderr=log,
+                       env=dict(os.environ, **(env or {})))
+    return out
+
+
+def shared_dir(job, name):
+    """A directory next to the dataset's runs that every setting of a strategy shares (the sweep deletes the
+    dataset's work dir when the dataset is done)."""
+    return os.path.join(os.path.dirname(os.path.dirname(job.out)), name)
+
+
+def _finished_backbones(graph_dir):
+    """MAGUS's finished backbone files (MAGUS writes each under a temporary name and moves it into place)."""
+    return [f for f in glob.glob(os.path.join(graph_dir, "backbone_*_mafft.txt")) if os.path.getsize(f) > 0]
+
+
+def magus_backbones(job, r, m):
+    """r backbones of m sequences built by MAGUS itself (m / subsets random sequences per subset, MAFFT L-INS-i),
+    once per dataset in shared_dir; returns (paths, seconds to build, built in this call).
+
+    MAGUS goes on from the backbones to its graph and trace, which are not needed here and, with 40 backbones, can
+    take longer than the backbones; it is stopped once the r backbones are written. A build stopped by a time limit
+    resumes: MAGUS keeps finished backbones in work/graph, and the task state it leaves behind (work/tasks, which
+    would make the next attempt wait for the killed run's tasks) is cleared first. Only this helper uses the dir."""
+    shared = shared_dir(job, "_backbones_r{}_m{}".format(r, m))
+    done = os.path.join(shared, "build.json")
+    built_now = not os.path.exists(done)
+    if built_now:
+        os.makedirs(shared, exist_ok=True)
+        work = os.path.join(shared, "work")
+        graph = os.path.join(work, "graph")
+        t0 = time.time()
+        if len(_finished_backbones(graph)) < r:
+            shutil.rmtree(os.path.join(work, "tasks"), ignore_errors=True)
+            cmd = [sys.executable, "-m", "magus.main", "-s"] + job.subsets + \
+                ["-d", work, "-o", os.path.join(shared, "unused.fasta"), "-np", job.threads, "-r", r, "-m", m,
+                 "--graphclustermethod", "none", "--graphtracemethod", "naive"]
+            with open(os.path.join(shared, "build.log"), "a") as log:
+                proc = subprocess.Popen([str(c) for c in cmd], stdout=log, stderr=log, start_new_session=True)
+                while proc.poll() is None and len(_finished_backbones(graph)) < r:
+                    time.sleep(10)
+                if proc.poll() is None:  # the backbones are written: stop MAGUS and its tools
+                    os.killpg(proc.pid, signal.SIGTERM)
+                    try:
+                        proc.wait(60)
+                    except subprocess.TimeoutExpired:
+                        os.killpg(proc.pid, signal.SIGKILL)
+                        proc.wait()
+            if len(_finished_backbones(graph)) < r:
+                raise SystemExit("MAGUS stopped (exit {}) before writing {} backbones; see {}".format(
+                    proc.returncode, r, os.path.join(shared, "build.log")))
+        for f in _finished_backbones(graph):
+            shutil.copy(f, shared)
+        shutil.rmtree(work, ignore_errors=True)
+        json.dump({"backbone_s": round(time.time() - t0, 1)}, open(done, "w"))
+    paths = sorted(glob.glob(os.path.join(shared, "backbone_*_mafft.txt")))
+    assert len(paths) == r, "expected {} backbones in {}, found {}".format(r, shared, len(paths))
+    return paths, json.load(open(done))["backbone_s"], built_now
+
+
 # ------------------------------------------------------------------ driver
 def run_strategy(strategy, params, magus_argv, info_path=None):
     job = parse_magus_args(magus_argv)
     t0 = time.time()
-    strategy.merge(job, **params)
+    extra = strategy.merge(job, **params) or {}  # a strategy may return extra info fields
     info = {"strategy": strategy.NAME, "params": params, "family": strategy.FAMILY, "subsets": len(job.subsets),
             "merge_tool_s": round(time.time() - t0, 2)}
+    info.update(extra)
     if info_path:
         json.dump(info, open(info_path, "w"), indent=1)
