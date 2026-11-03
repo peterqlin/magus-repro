@@ -15,7 +15,7 @@ import csv
 import json
 import statistics as st
 
-FAMILY_ORDER = ["strict", "adaptive", "network", "structure", "learned", "merge", "evidence", "iterate", "repair",
+FAMILY_ORDER = ["strict", "adaptive", "network", "structure", "learned", "merge", "evidence", "iterate", "repair", "stacked",
                 "whole", "ceiling"]
 
 
