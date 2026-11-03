@@ -22,11 +22,11 @@ def merge(job, repair, ginsi, tools, lam=0.25):
     info = {"feature_s": {}, "feature_cold_s": {}}
     backbones = list(job.backbones)
     if ginsi:
-        paths, secs, built_now = registry.load("custom_backbones").build(job, "ginsi", "random", ginsi, 8)
+        paths, secs, secs_now = registry.load("custom_backbones").build(job, "ginsi", "random", ginsi, 8)
         backbones += paths
         info["backbone_s"] = secs
-        if built_now:  # charged like a cached feature, then left out: merge_s minus feature_s is the merge alone
-            info["feature_s"]["backbones"] = secs
+        if secs_now:  # charged like a cached feature, then left out: merge_s minus feature_s is the merge alone
+            info["feature_s"]["backbones"] = secs_now
     subsets = job.subsets
     if repair:
         subsets, info["columns_split"] = repair_files(job.subsets, job.backbones, job.path("repaired"), repair)

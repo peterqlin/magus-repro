@@ -3,8 +3,9 @@
 L-INS-i, ginsi = G-INS-i, fftns2 = FFT-NS-2), either added to the run's own backbones (mode=add) or used instead of
 them (mode=replace); then MAGUS's merge. pick=random samples the sequences as MAGUS does; pick=spread picks, per
 subset, sequences that fill columns few others fill (greedy cover weighted by 1 / occupancy), so gappy columns get
-backbone letters. Each backbone set is built once per dataset and shared by its settings; its build time is
-reported as backbone_s and is not part of merge_s, as in more_backbones."""
+backbone letters. Each backbone set is built once per dataset and shared by its settings (r=20 reuses r=10's ten);
+its build time is reported as backbone_s and is not part of merge_s, as in more_backbones. ginsi random add r=10, 20,
+30 is a dose test, and linsi random add r=10 its control (more of MAGUS's own kind of backbone)."""
 import concurrent.futures
 import glob
 import json
@@ -22,7 +23,11 @@ GRID = [{"method": "ginsi", "pick": "random", "mode": "add", "r": 10},
         {"method": "linsi", "pick": "spread", "mode": "add", "r": 10},
         {"method": "linsi", "pick": "spread", "mode": "replace", "r": 10},
         {"method": "ginsi", "pick": "spread", "mode": "add", "r": 10},
-        {"method": "fftns2", "pick": "random", "mode": "add", "r": 40}]
+        {"method": "fftns2", "pick": "random", "mode": "add", "r": 40},
+        {"method": "ginsi", "pick": "random", "mode": "add", "r": 20},
+        {"method": "ginsi", "pick": "random", "mode": "add", "r": 30},
+        {"method": "ginsi", "pick": "random", "mode": "replace", "r": 10},
+        {"method": "linsi", "pick": "random", "mode": "add", "r": 10}]
 METHODS = {"linsi": ["--localpair", "--maxiterate", "1000", "--ep", "0.123"],
            "ginsi": ["--globalpair", "--maxiterate", "1000", "--ep", "0.123"],
            "fftns2": ["--retree", "2"]}
@@ -52,20 +57,21 @@ def pick_taxa(names, H, per, pick, rng):
 
 
 def build(job, method, pick, r, per):
-    shared = M.shared_dir(job, "_custom_{}_{}_r{}_p{}".format(method, pick, r, per))
-    done = os.path.join(shared, "build.json")
-    built_now = not os.path.exists(done)
-    if built_now:
+    """Backbones 1..r of (method, pick, per) for this dataset. Backbone i depends only on i, so they are built once
+    in a directory shared by every r (r=20 reuses r=10's ten) and a build stopped by a time limit resumes. Returns
+    (paths, build seconds of these r on job.threads threads, seconds spent building in this call)."""
+    shared = M.shared_dir(job, "_custom_{}_{}_p{}".format(method, pick, per))
+    out = lambda i: os.path.join(shared, "backbone_{}_mafft.txt".format(i + 1))
+    todo = [i for i in range(r) if not os.path.exists(out(i))]
+    t_call = time.time()
+    if todo:
         os.makedirs(shared, exist_ok=True)
-        t0 = time.time()
         subs = [{k: v.upper() for k, v in read_fasta(p).items()} for p in job.subsets]
         mats = [(list(sub), residue_matrix(sub)) for sub in subs]
         mafft = M.tool("mafft")
 
         def one(i):
-            out = os.path.join(shared, "backbone_{}_mafft.txt".format(i + 1))
-            if os.path.exists(out):  # resumes after a time limit
-                return
+            t0 = time.time()
             rng = np.random.default_rng(i)
             seqs = {}
             for sub, (names, H) in zip(subs, mats):
@@ -73,22 +79,22 @@ def build(job, method, pick, r, per):
                     seqs[t] = sub[t].replace("-", "").replace(".", "")
             unaligned = os.path.join(shared, "backbone_{}_unalign.txt".format(i + 1))
             write_fasta(seqs, unaligned)
-            with open(out + ".tmp", "w") as f, open(os.path.join(shared, "mafft.log"), "a") as log:
+            with open(out(i) + ".tmp", "w") as f, open(os.path.join(shared, "mafft.log"), "a") as log:
                 subprocess.run([mafft] + METHODS[method] + ["--quiet", "--thread", "1", "--anysymbol", unaligned],
                                stdout=f, stderr=log, check=True)
-            write_fasta({k: v.upper() for k, v in read_fasta(out + ".tmp").items()}, out)
-            os.remove(out + ".tmp")
+            json.dump({"s": round(time.time() - t0, 1)}, open(out(i) + ".json", "w"))
+            write_fasta({k: v.upper() for k, v in read_fasta(out(i) + ".tmp").items()}, out(i))
+            os.remove(out(i) + ".tmp")
             os.remove(unaligned)
         with concurrent.futures.ThreadPoolExecutor(job.threads) as ex:
-            list(ex.map(one, range(r)))
-        json.dump({"backbone_s": round(time.time() - t0, 1)}, open(done, "w"))
-    paths = sorted(glob.glob(os.path.join(shared, "backbone_*_mafft.txt")))
-    assert len(paths) == r, "expected {} backbones in {}, found {}".format(r, shared, len(paths))
-    return paths, json.load(open(done))["backbone_s"], built_now
+            list(ex.map(one, todo))
+    paths = [out(i) for i in range(r)]
+    single = sum(json.load(open(p + ".json"))["s"] for p in paths if os.path.exists(p + ".json"))
+    return paths, round(single / max(1, job.threads), 1), round(time.time() - t_call, 1) if todo else 0
 
 
 def merge(job, method, pick, mode, r, per=8):
-    paths, secs, built_now = build(job, method, pick, r, per)
+    paths, secs, secs_now = build(job, method, pick, r, per)
     M.magus_merge(job, job.out, backbones=(job.backbones + paths) if mode == "add" else paths)
     return {"backbone_s": secs, "backbones": len(paths) + (len(job.backbones) if mode == "add" else 0),
-            "feature_s": {"backbones": secs} if built_now else {}, "feature_cold_s": {}}
+            "feature_s": {"backbones": secs_now} if secs_now else {}, "feature_cold_s": {}}
