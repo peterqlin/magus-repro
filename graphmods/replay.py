@@ -36,7 +36,7 @@ def backbone_files(paths):
 
 
 def replay(subsets, backbones, reference, out_dir, strategy="magus", params=None, cache=None, threads=4,
-           strategies=None, keep_work=False):
+           strategies=None, keep_work=False, name=None):
     params = params or {}
     out_dir = os.path.abspath(out_dir)
     shutil.rmtree(out_dir, ignore_errors=True)
@@ -56,7 +56,8 @@ def replay(subsets, backbones, reference, out_dir, strategy="magus", params=None
     with open(os.path.join(out_dir, "magus.log"), "w") as log:
         subprocess.run(cmd, cwd=PKG_ROOT, stdout=log, stderr=subprocess.STDOUT, check=True,
                        env=dict(os.environ, PYTHONPATH=PKG_ROOT + os.pathsep + os.environ.get("PYTHONPATH", ""),
-                                GRAPHMODS_REFERENCE=os.path.abspath(reference)))  # read only by ceiling strategies
+                                GRAPHMODS_REFERENCE=os.path.abspath(reference),  # read only by ceiling strategies
+                                GRAPHMODS_NAME=name or ""))  # the dataset, for learned_weights / dump_edge_features
     wall = round(time.time() - t0, 1)
     if not keep_work:
         shutil.rmtree(os.path.join(out_dir, "work"), ignore_errors=True)
@@ -81,9 +82,10 @@ def main():
     ap.add_argument("--cache")
     ap.add_argument("--threads", type=int, default=4)
     ap.add_argument("--keep-work", action="store_true")
+    ap.add_argument("--name", help="dataset name (<condition>_R<replicate>; learned_weights picks its model by it)")
     a = ap.parse_args()
     row = replay(a.subsets, a.backbones, a.reference, a.out, a.strategy, registry.parse_params(a.param), a.cache,
-                 a.threads, a.strategies, a.keep_work)
+                 a.threads, a.strategies, a.keep_work, a.name)
     print(json.dumps(row))
 
 
